@@ -57,33 +57,33 @@ void drivePwm(BelaContext* context, int pwmPin)
 
 
 
-class BelaOutputs {
+class BelaIO {
 public: 
-	BelaOutputs() {
-		digitalPin_[0] = trigOut1;
-		digitalPin_[1] = trigOut2;
-		digitalPin_[2] = trigOut3;
-		digitalPin_[3] = trigOut4;
+	BelaIO() {
+		digitalOutPin_[0] = trigOut1;
+		digitalOutPin_[1] = trigOut2;
+		digitalOutPin_[2] = trigOut3;
+		digitalOutPin_[3] = trigOut4;
 	}
 
-	unsigned numDigitalPins() {return MAX_DIGITAL;}
-	bool 	 digital(unsigned idx) { return digital_[idx];}
-	void 	 digital(unsigned idx,bool value) { digital_[idx]=value;}
-	unsigned digitalPin(unsigned idx) { return digitalPin_[idx];}
-	unsigned numAnalog() {return MAX_ANALOG;}
-	float 	 analog(unsigned idx) { return analog_[idx];}
-	void 	 analog(unsigned idx, float value) { analog_[idx]=value;}
+	unsigned numDigitalOuts() {return MAX_DIGITAL_OUT;}
+	bool 	 digitalOut(unsigned idx) { return digitalOut_[idx];}
+	void 	 digitalOut(unsigned idx, bool value) { digitalOut_[idx]=value;}
+	unsigned digitalOutPin(unsigned idx) { return digitalOutPin_[idx];}
+	unsigned numAnalogOut() {return MAX_ANALOG_OUT;}
+	float 	 analogOut(unsigned idx) { return analogOut_[idx];}
+	void 	 analogOut(unsigned idx, float value) { analogOut_[idx]=value;}
 		
 	
 private:
-	static constexpr unsigned MAX_DIGITAL=4;
-	static constexpr unsigned MAX_ANALOG=8;
-	bool digital_[MAX_DIGITAL];
-	unsigned digitalPin_[MAX_DIGITAL];
-	float analog_[MAX_ANALOG];
+	static constexpr unsigned MAX_DIGITAL_OUT=4;
+	static constexpr unsigned MAX_ANALOG_OUT=8;
+	bool digitalOut_[MAX_DIGITAL_OUT];
+	unsigned digitalOutPin_[MAX_DIGITAL_OUT];
+	float analogOut_[MAX_ANALOG_OUT];
 };
 
-static BelaOutputs outputs_;
+static BelaIO belaio_;
 
 struct SPTouch {
 	SPTouch() : 
@@ -284,11 +284,11 @@ public:
 	
 	void output(const SPTouch& t) override {
     	// pitch, y, z, x 
-    	outputs_.digital(0,t.active_);
-    	outputs_.analog(0, t.pitch_ + transpose(-3)); // C=3
-    	outputs_.analog(1, t.y_);
-    	outputs_.analog(2, t.z_);
-  		outputs_.analog(3, t.x_);
+        belaio_.digitalOut(0, t.active_);
+        belaio_.analogOut(0, t.pitch_ + transpose(-3)); // C=3
+        belaio_.analogOut(1, t.y_);
+        belaio_.analogOut(2, t.z_);
+        belaio_.analogOut(3, t.x_);
 	}
 };
 
@@ -314,19 +314,19 @@ public:
 		switch(t.zone_) {
 	        case 0 : {
 	        	// pitch, y, z, x
-	        	outputs_.digital(0,t.active_);
-	        	outputs_.analog(0, t.pitch_ + transpose(-3));
-	        	outputs_.analog(1, t.y_);
-	        	outputs_.analog(2, t.z_);
-	      		outputs_.analog(3, t.x_);
+                belaio_.digitalOut(0, t.active_);
+                belaio_.analogOut(0, t.pitch_ + transpose(-3));
+                belaio_.analogOut(1, t.y_);
+                belaio_.analogOut(2, t.z_);
+                belaio_.analogOut(3, t.x_);
 	      		break;
 	        }; 
 	        default : {
-	        	outputs_.digital(2, t.active_);
-	        	outputs_.analog(4, t.pitch_ + transpose(-3));
-	        	outputs_.analog(5, t.y_);
-	        	outputs_.analog(6, t.z_);
-	      		outputs_.analog(7, t.x_);
+                belaio_.digitalOut(2, t.active_);
+                belaio_.analogOut(4, t.pitch_ + transpose(-3));
+                belaio_.analogOut(5, t.y_);
+                belaio_.analogOut(6, t.z_);
+                belaio_.analogOut(7, t.x_);
 	        }
 		}
 	}
@@ -366,28 +366,28 @@ public:
 	void output(const SPTouch& t) override {
 		switch(t.zone_) {
 			case 0 : {
-		        	outputs_.digital(1, t.active_);
-		        	outputs_.analog(3, t.y_);
+                belaio_.digitalOut(1, t.active_);
+                belaio_.analogOut(3, t.y_);
 				break;	
 			}
 			case 1 : {
-	        	outputs_.digital(0,t.active_);
-	        	outputs_.analog(0, t.pitch_ + transpose(-1));
-	        	outputs_.analog(1, t.y_);
-	        	outputs_.analog(2, t.z_);
+                belaio_.digitalOut(0, t.active_);
+                belaio_.analogOut(0, t.pitch_ + transpose(-1));
+                belaio_.analogOut(1, t.y_);
+                belaio_.analogOut(2, t.z_);
 				break;	
 			}
 			case 2 : {
-	        	outputs_.digital(2, t.active_);
-	        	outputs_.analog(4, t.pitch_ + transpose(-3));
-	        	outputs_.analog(5, t.y_);
-	        	outputs_.analog(6, t.z_);
+                belaio_.digitalOut(2, t.active_);
+                belaio_.analogOut(4, t.pitch_ + transpose(-3));
+                belaio_.analogOut(5, t.y_);
+                belaio_.analogOut(6, t.z_);
 				break;	
 			}
 			default:
 			case 3 : {
-	        	outputs_.digital(3, t.active_);
-	        	outputs_.analog(7, t.y_);
+                belaio_.digitalOut(3, t.active_);
+                belaio_.analogOut(7, t.y_);
 				break;	
 			}
 		}
@@ -509,8 +509,8 @@ bool setup(BelaContext *context, void *userData)
 	pinMode(context,0,trigIn4,INPUT);
 
 
-	for(unsigned i = 0; i< outputs_.numDigitalPins(); i++) {
-	 	pinMode(context, 0, outputs_.digitalPin(i), OUTPUT); 
+	for(unsigned i = 0; i< belaio_.numDigitalOuts(); i++) {
+	 	pinMode(context, 0, belaio_.digitalOutPin(i), OUTPUT);
 	}
 
 	gpDevice = new SPLiteDevice();
@@ -598,18 +598,18 @@ void render(BelaContext *context, void *userData)
 		Bela_scheduleAuxiliaryTask(gSPLiteProcessTask);
 	// }
 
-	for(unsigned int i = 0; i < outputs_.numDigitalPins();i++) {
-		unsigned pin= outputs_.digitalPin(i);
+	for(unsigned int i = 0; i < belaio_.numDigitalOuts();i++) {
+		unsigned pin= belaio_.digitalOutPin(i);
 		if(pin < context->digitalChannels) { 
-			bool value = outputs_.digital(i);
+			bool value = belaio_.digitalOut(i);
 			for(unsigned int n = 0; n < context->digitalFrames; n++) {
 				digitalWriteOnce(context, n, pin ,value);	
 			}
 		}
 	}
 
-	for(unsigned int i = 0; i < outputs_.numAnalog();i++) {
-		float value = outputs_.analog(i);
+	for(unsigned int i = 0; i < belaio_.numAnalogOut();i++) {
+		float value = belaio_.analogOut(i);
 		for(unsigned int n = 0; n < context->analogFrames; n++) {
 			analogWriteOnce(context, n, i,value );
 		}
