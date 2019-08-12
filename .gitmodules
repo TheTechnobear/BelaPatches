@@ -4,3 +4,6 @@
 [submodule "external/EigenLite"]
 	path = external/EigenLite
 	url = https://github.com/thetechnobear/EigenLite
+[submodule "external/MEC"]
+	path = external/MEC
+	url = https://github.com/thetechnobear/MEC

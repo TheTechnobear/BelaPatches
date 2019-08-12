@@ -73,17 +73,18 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/release/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/release/bin)
 
 ############
-#if(NOT DISABLE_LIBUSB)
-#add_subdirectory(external/libusb libusb)
-#endif()
+if(NOT DISABLE_LIBUSB)
+add_subdirectory(external/libusb libusb)
+endif()
 
-#add_subdirectory(external/oscpack oscpack)
-#add_subdirectory(external/portaudio portaudio)
-#add_subdirectory(external/cJSON cjson)
-#add_subdirectory(external/rtmidi rtmidi)
-#add_subdirectory(external/moodycamel)
+add_subdirectory(external/oscpack oscpack)
+add_subdirectory(external/portaudio portaudio)
+add_subdirectory(external/cJSON cjson)
+add_subdirectory(external/rtmidi rtmidi)
+add_subdirectory(external/moodycamel)
 add_subdirectory(external/SoundplaneLite/splite)
 add_subdirectory(external/EigenLite/eigenapi)
+add_subdirectory(external/MEC/mec-api)
 
 
 #add_subdirectory(mec-utils)
