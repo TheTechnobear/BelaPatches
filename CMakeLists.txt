@@ -84,6 +84,8 @@ add_subdirectory(external/rtmidi rtmidi)
 add_subdirectory(external/moodycamel)
 add_subdirectory(external/SoundplaneLite/splite)
 add_subdirectory(external/EigenLite/eigenapi)
+add_subdirectory(external/MEC/mec-utils)
+add_subdirectory(external/MEC/mec-kontrol)
 add_subdirectory(external/MEC/mec-api)
 
 

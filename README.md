@@ -14,7 +14,7 @@ note: they may or may not be up to date, or working ;)
 
 
 # initial setup 
-I clone the repository into a directory e.g.
+clone the repository into a directory
 ```
 mkdir ~/projects
 cd ~/projects
@@ -22,6 +22,21 @@ git clone https:https:/github.com/thetechnobear/BelaPatches
 ```
 
 
-Some patches (particulary my C++ ones), will need to have external libraries built
+Some patches (particulary my C++ ones), will need to have external libraries built, so we need to pull the external submodules
 
+```
+git submodule update --init --recursive .
+```
 
+now we can build requisite libraries etc
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+now bela projects are able to use these libraries
+
+note: if you want to distribute as standalone, you will need to copy libraries and alter the settings.json for the bela project, since they refer to the build area
