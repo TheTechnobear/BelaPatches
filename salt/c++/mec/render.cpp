@@ -18,7 +18,7 @@ public:
 	}
 	
     void touchOn(int touchId, float note, float x, float y, float z) override {
-    	// rt_printf("touchOn %i , %f, %f %f %f\n", touchId,note,x,y,z);
+       //rt_printf("touchOn %i , %f, %f %f %f\n", touchId,note,x,y,z);
     	if(note>=1024) {
 			button(note-1024,true); 		
     	} else {
@@ -32,6 +32,7 @@ public:
 			}
     	}
     }
+    
 
     void touchContinue(int touchId, float note, float x, float y, float z) override {
     	// rt_printf("touchContinue %i , %f, %f %f %f\n", touchId,note,x,y,z);
@@ -43,6 +44,8 @@ public:
 				x_=x;
 				y_=y;
 				z_=z;
+			} else {
+		    	// rt_printf(" bah %f,%f%f\n",active_, touchId,touchId_);
 			}
 	    }
     }
@@ -90,6 +93,7 @@ public:
 		float a6= 0.0f;
 		float a7= 0.0f;
 		
+
 		for(unsigned int n = 0; n < context->analogFrames; n++) {
 			analogWriteOnce(context, n, 0,a0);
 			analogWriteOnce(context, n, 1,a1);
@@ -125,30 +129,28 @@ private:
 	}
 	
 	float transpose (float pitch, int octave, int semi) {
-		return pitch + (((( START_OCTAVE + octave) * 12 ) + semi) *  semiMult_ );
+		return (pitch + (( START_OCTAVE + octave) * 12 ) + semi) *  semiMult_ ;
 	}
-
 
 
 #ifdef SALT
 	static constexpr float 	OUT_VOLT_RANGE=10.0f;
 	static constexpr float 	ZERO_OFFSET=0.5f;
-	static constexpr int   	START_OCTAVE=5;
+	static constexpr int   	START_OCTAVE=0;
 #else 
 	static constexpr float 	OUT_VOLT_RANGE=5.0f;
 	static constexpr float 	ZERO_OFFSET=0;
 	static constexpr int 	START_OCTAVE=1.0f;
 #endif 
-
 	static constexpr float semiMult_ = (1.0f / (OUT_VOLT_RANGE * 12.0f)); // 1.0 = 10v = 10 octaves 
 
-	float touchId_;   
-    float note_;
-    float x_,y_,z_;
-    float active_;
+	float touchId_=-1.0f;   
+    float note_=60.0f;
+    float x_=0.0f,y_=0.0f,z_=0.0f;
+    bool  active_ = false;
 
-    float breath_;
-    float ribbon_;
+    float breath_=0.0f;
+    float ribbon_=0.0f;
     
 
 private:
