@@ -17,7 +17,6 @@ AuxiliaryTask gLEDTask;
 
 Sequencer gSeq;
 
-
 // only good for pico!
 static constexpr unsigned MAX_COLS=2;
 static constexpr unsigned MAX_ROWS=18;

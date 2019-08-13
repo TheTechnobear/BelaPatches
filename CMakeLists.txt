@@ -9,6 +9,12 @@ set(MEC_VERSION_UPDATE 1)
 set(MEC_VERSION "${MEC_VERSION_MAJOR}.${MEC_VERSION_MINOR}.${MEC_VERSION_UPDATE}")
 set(CMAKE_OSX_ARCHITECTURES "x86_64")
 
+if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)   
+	if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+    endif() 
+endif()
+
 if(WIN32)
     message("windows support limited")
     set(DISABLE_LIBUSB 1)

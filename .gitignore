@@ -36,5 +36,6 @@ Podfile.lock
 **/*.o
 **/*.so
 **/*.dylib
+loop_*
 
 

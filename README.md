@@ -37,6 +37,15 @@ cmake ..
 make
 ```
 
+all these projects are configured to expect a symbolic link to the external projects in the projects directory
+to achieve this
+```
+cd ~/Bela/projects
+ln -s ~/projects/BelaPatches/external .
+ln -s ~/projects/BelaPatches/build/release/lib .
+```
+
+
 now bela projects are able to use these libraries
 
 note: if you want to distribute as standalone, you will need to copy libraries and alter the settings.json for the bela project, since they refer to the build area
