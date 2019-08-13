@@ -8,6 +8,12 @@
 #include "defs.h"
 #include "seq.h"
 
+
+// Important Note:
+// Current versions of bela kernel appear to hang on tau/alpha, 
+// so only pico is support at this time
+
+
 EigenApi::Eigenharp*	gApi=NULL;
 class BelaCallback;
 BelaCallback* 	gCallback=NULL;
@@ -68,7 +74,7 @@ public:
 				break;
 			case EigenApi::Callback::TAU:
 			case EigenApi::Callback::ALPHA:
-				rt_printf("currently this is designed for the pico, some changes may be needed for TAU or ALPHA");
+				rt_printf("only PICO is supported at this time");
 				break;
 		}
 
@@ -318,14 +324,15 @@ public:
 		}
 		unsigned nStep = gSeq.curStep();
 		Step s = gSeq.step(nStep);
-		a[0] = transpose(note_ + pitchbend(x_),octave_,tonic_);
-		a[1] = scaleY(y_,1.0f);
-		a[2] = pressure(z_,1.0f);
-		a[3] = ribbon_;
-		a[4] = breath_;
-		a[5] = transpose(s.note() + pitchbend(s.x()),octave_,tonic_);
-		a[6] = scaleY(s.y(),1.0f);
-		a[7] = pressure(s.z(),1.0f);
+		int pitchKnob = int((analogRead(context, 0, 0) - 0.5) * 6);
+		a[0] = transpose(note_ + pitchbend(x_),octave_,tonic_); // +pitchknob?
+		a[1] = scaleY(y_,analogRead(context, 0, 1) * 2);
+		a[2] = pressure(z_,analogRead(context, 0, 2) * 2);
+		a[3] = scaleBreath(breath_,analogRead(context, 0, 3) * 2);
+		a[4] = transpose(s.note() + pitchbend(s.x()),octave_,tonic_);
+		a[5] = scaleY(s.y(),analogRead(context, 0, 1) * 2);
+		a[6] = pressure(s.z(),analogRead(context, 0, 2) * 2);
+		a[7] = scaleRibbon(ribbon_, analogRead(context, 0, 7) * 2);
 		
 		if(mode_==4) {
 	 		if(lStep!=nStep) {
@@ -339,7 +346,16 @@ public:
 			for(unsigned i = 0;i<8;i++) {
 				analogWriteOnce(context, n, i,a[i]);
 			}
-		}    	
+		}
+
+        float amp = pressure(z_,1.0f);
+        for(unsigned int n = 0; n < context->audioFrames; n++) {
+            float v0 = audioRead(context, n, 0) * amp;
+            audioWrite(context, n, 0, v0);
+            float v1 = audioRead(context, n, 1) * amp;
+            audioWrite(context, n, 1, v1);
+        }
+    	
     }
     
     
@@ -372,6 +388,14 @@ private:
 	float scaleX(float x, float mult) {
 		return ( (x * mult * 0.5f)  * ( 1.0f-ZERO_OFFSET) )  + 0.5f ;	
 	}
+
+    float scaleBreath(float x, float mult) {
+        return ( (x * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;   
+    }
+
+    float scaleRibbon(float x, float mult) {
+        return ( (x * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;   
+    }
 	
 	float transpose (float pitch, int octave, int semi) {
 		return (pitch + semi + (( START_OCTAVE + octave) * 12.0f )) *  semiMult_ ;
@@ -487,79 +511,47 @@ long renderFrame = 0;
 void render(BelaContext *context, void *userData)
 {
 #ifdef SALT
-	drivePwm(context,pwmOut);
+    drivePwm(context,pwmOut);
 
-	static unsigned lsw,/*ltr1,*/ ltr2,ltr3,ltr4;
-	static unsigned led_mode=0; // 0 = normal
-	static unsigned led_counter=0;
+    setLed(context, ledOut1, 2);
+    setLed(context, ledOut2, 1);
+    setLed(context, ledOut3, 0);
+    setLed(context, ledOut4, 1);
 
-	unsigned sw  = digitalRead(context, 0, switch1);  //next layout
-	// unsigned tr1 = digitalRead(context, 0, trigIn1);  
-	unsigned tr2 = digitalRead(context, 0, trigIn2);  //quantize 
-	unsigned tr3 = digitalRead(context, 0, trigIn3);
-	unsigned tr4 = digitalRead(context, 0, trigIn4);
+    // static unsigned lsw,/*ltr1,*/ ltr2,ltr3,ltr4;
+    // static unsigned led_mode=0; // 0 = normal
+    // static unsigned led_counter=0;
 
-	setLed(context, ledOut1, 1);
-	setLed(context, ledOut2, 2);
-	setLed(context, ledOut3, 0);
-	setLed(context, ledOut4, 1);
-
+    // unsigned sw  = digitalRead(context, 0, switch1);  //next layout
+    // // unsigned tr1 = digitalRead(context, 0, trigIn1);  
+    // unsigned tr2 = digitalRead(context, 0, trigIn2);  //quantize 
+    // unsigned tr3 = digitalRead(context, 0, trigIn3);
+    // unsigned tr4 = digitalRead(context, 0, trigIn4);
 
 
-	if(sw  && !lsw)  { 
-		// gCallback->nextLayout(); 
-		led_counter=2100;
-		led_mode=1;
-	}
-	
-	// if(led_mode==1) {
-	// 	led_counter--;
-	// 	if(led_counter>100 
-	// 		&& led_counter < 2000
-	// 		&& ((led_counter / 500) % 2)
-	// 	) {
-	//		unsigned layout = (gCallback->layoutSignature());
-	// 		setLed(context, ledOut4, layout & 0x3);
-	// 		layout = layout >> 2;
-	// 		setLed(context, ledOut3, layout & 0x3);
-	// 		layout = layout >> 2;
-	// 		setLed(context, ledOut2, layout & 0x3);
-	// 		layout = layout >> 2;
-	// 		setLed(context, ledOut1, layout & 0x3);
-	// 	} else {
-	// 		setLed(context, ledOut1, 0);
-	// 		setLed(context, ledOut2, 0);
-	// 		setLed(context, ledOut3, 0);
-	// 		setLed(context, ledOut4, 0);
-	// 		if(led_counter==0) led_mode=0;
-	// 	}
-	// }
-	// if(tr2  && !ltr2)  { gCallback->nextCustomMode(); }
-	// if(tr3  && !ltr3)  { gCallback->nextPitchMode(); }
-	// if(tr4  && !ltr4)  { gCallback->nextQuantMode(); }
-	// if(led_mode==0) {
-	// 	setLed(context, ledOut2, gCallback->customMode() %3);
-	// 	setLed(context, ledOut3, gCallback->pitchMode() %3);
-	// 	setLed(context, ledOut4, gCallback->quantMode() %3);
-	// }
-
-	lsw =  sw;
-	// ltr1 = tr1;
-	ltr2 = tr2;
-	ltr3=  tr3;
-	ltr4=  tr4;
+    // if(sw  && !lsw)  { 
+    //     // gCallback->nextLayout(); 
+    //     led_counter=2100;
+    //     led_mode=1;
+    // }
+    
+    // lsw =  sw;
+    // // ltr1 = tr1;
+    // ltr2 = tr2;
+    // ltr3=  tr3;
+    // ltr4=  tr4;
 #endif
 
 	Bela_scheduleAuxiliaryTask(gProcessTask);
 	Bela_scheduleAuxiliaryTask(gLEDTask);
 	
 	renderFrame++;
-	// silence audio buffer
-	for(unsigned int n = 0; n < context->audioFrames; n++) {
-		for(unsigned int channel = 0; channel < context->audioOutChannels; channel++) {
-			audioWrite(context, n, channel, 0.0f);
-		}
-	}
+	// // silence audio buffer
+	// for(unsigned int n = 0; n < context->audioFrames; n++) {
+	// 	for(unsigned int channel = 0; channel < context->audioOutChannels; channel++) {
+	// 		audioWrite(context, n, channel, 0.0f);
+	// 	}
+	// }
 	
 	gCallback->render(context);
 	

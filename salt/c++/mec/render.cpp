@@ -1,11 +1,19 @@
 #include <Bela.h>
 
+
 #include <mec_api.h>
 #include <math.h>
+
+#include "defs.h"
 
 mec::MecApi* 	gMecApi=NULL;
 class BelaMecCallback;
 BelaMecCallback* 	gMecCallback=NULL;
+
+
+static constexpr BREATH_CTRLID=0;
+static constexpr RIBBON_1_CTRLID=0x10; 
+static constexpr RIBBON_2_CTRLID=0x11;
 
 
 AuxiliaryTask gMecProcessTask;
@@ -19,91 +27,102 @@ public:
 	
     void touchOn(int touchId, float note, float x, float y, float z) override {
        //rt_printf("touchOn %i , %f, %f %f %f\n", touchId,note,x,y,z);
-    	if(note>=1024) {
-			button(note-1024,true); 		
-    	} else {
-			if(!active_) {
-				active_=true;
-				touchId_=touchId;
-				note_=note;
-				x_=x;
-				y_=y;
-				z_=z;
-			}
-    	}
+		if(!active_) {
+			active_=true;
+			touchId_=touchId;
+			note_=note;
+			x_=x;
+			y_=y;
+			z_=z;
+		}
     }
     
 
     void touchContinue(int touchId, float note, float x, float y, float z) override {
-    	// rt_printf("touchContinue %i , %f, %f %f %f\n", touchId,note,x,y,z);
-	   	if(note>=1024) {
-    		;
-    	} else {
-			if(active_ && touchId==touchId_) {
-				note_=note;
-				x_=x;
-				y_=y;
-				z_=z;
-			} else {
-		    	// rt_printf(" bah %f,%f%f\n",active_, touchId,touchId_);
-			}
-	    }
+		if(active_ && touchId==touchId_) {
+			note_=note;
+			x_=x;
+			y_=y;
+			z_=z;
+        }
     }
 
     void touchOff(int touchId, float note, float x, float y, float z) override {
-    	// rt_printf("touchOff %i , %f, %f %f %f\n", touchId,note,x,y,z);
-	   	if(note>=1024) {
-			button(note-1024,false); 		
-	    } else {
-			if(active_ && touchId==touchId_) {
-				active_=false;
-				note_=note;
-				x_=x;
-				y_=y;
-				z_=z;
-			}
-	    }
+		if(active_ && touchId==touchId_) {
+			active_=false;
+			note_=note;
+			x_=x;
+			y_=y;
+			z_=z;
+		}
     }
-    
+
+
     void control(int ctrlId, float v) override {
     	// rt_printf("control %i , %f\n", ctrlId,v);
     	switch (ctrlId) {
-    		case 0 : {
+    		case BREATH_CTRLID : {
     			breath_=v;
     			break;
     		}
-    		case 17 : {
-    			ribbon_=v;
+    		case RIBBON_1_CTRLID : {
+    			ribbon_[0]=v;
     			break;
     		}
+            case RIBBON_2_CTRLID : {
+                ribbon_[1]=v;
+                break;
+            }
     	}
-    }
-    void button(unsigned butId, bool state) {
-    	// rt_printf("button %i , %i\n", butId,state);
-    	// pico = 48,49,50,51
     }
     
     void render(BelaContext *context) {
-		float a0=transpose(note_,0,0);
-		float a1=active_;
-		float a2=scaleY(y_,1.0f);
-		float a3=pressure(z_,1.0f);
-		float a4=breath_;
-		float a5=ribbon_;
-		float a6= 0.0f;
-		float a7= 0.0f;
-		
+        bool d[4];
+        d[0] = active_;
+        d[1] = false;
+        d[2] = false;
+        d[3] = false;
+
+
+        for(unsigned int n = 0; n < context->digitalFrames; n++) {
+            digitalWriteOnce(context, n, trigOut1 ,d[0]);
+            digitalWriteOnce(context, n, trigOut2 ,d[1]);
+            digitalWriteOnce(context, n, trigOut3 ,d[2]);
+            digitalWriteOnce(context, n, trigOut4 ,d[3]);
+        }
+
+
+        float note      = transpose(note_, int((analogRead(context, 0, 0) - 0.5) * 6) ,-3);
+        float y         = scaleY(y_,            analogRead(context, 0, 1) * 2);
+        float z         = pressure(z_,          analogRead(context, 0, 2) * 2);
+        float amp       = audioAmp(z_,          analogRead(context, 0, 2) * 2);
+        float breath    = scaleBreath(breath_,  analogRead(context, 0, 3) * 2);
+        float ribbon1   = scaleRibbon(ribbon[0]_,  analogRead(context, 0, 4) * 2);
+        float ribbon2   = scaleRibbon(ribbon[0]_,  analogRead(context, 0, 5) * 2);
+
+        float a[8];
+        a[0] = note;
+		a[1] = y;
+		a[2] = z;
+	    a[3] = breath;
+		a[4] = ribbon1;
+		a[5] = ribbon2;
+		a[6] = 0.0f;
+        a[7] = 0.0f;
+	
 
 		for(unsigned int n = 0; n < context->analogFrames; n++) {
-			analogWriteOnce(context, n, 0,a0);
-			analogWriteOnce(context, n, 1,a1);
-			analogWriteOnce(context, n, 2,a2);
-			analogWriteOnce(context, n, 3,a3);
-			analogWriteOnce(context, n, 4,a4);
-			analogWriteOnce(context, n, 5,a5);
-			analogWriteOnce(context, n, 6,a6);
-			analogWriteOnce(context, n, 7,a7);
+            for(unsigned int i=0;i<8;i++) {
+    			analogWriteOnce(context, n, i,a[i]);
+            }
 		}    	
+
+        for(unsigned int n = 0; n < context->audioFrames; n++) {
+            float v0 = audioRead(context, n, 0) * amp;
+            audioWrite(context, n, 0, v0);
+            float v1 = audioRead(context, n, 1) * amp;
+            audioWrite(context, n, 1, v1);
+        }
     }
     
     
@@ -127,9 +146,17 @@ private:
 	float scaleX(float x, float mult) {
 		return ( (x * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
 	}
+
+    float scaleBreath(float x, float mult) {
+        return ( (x * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;   
+    }
+
+    float scaleRibbon(float x, float mult) {
+        return ( (x * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;   
+    }
 	
 	float transpose (float pitch, int octave, int semi) {
-		return (pitch + (( START_OCTAVE + octave) * 12 ) + semi) *  semiMult_ ;
+        return (pitch + semi + (( START_OCTAVE + octave) * 12.0f )) *  semiMult_ ;
 	}
 
 
@@ -150,7 +177,7 @@ private:
     bool  active_ = false;
 
     float breath_=0.0f;
-    float ribbon_=0.0f;
+    float ribbon_[2]={0.0f,0.0f};
     
 
 private:
@@ -163,6 +190,20 @@ void mecProcess(void* pvMec) {
 
 
 bool setup(BelaContext *context, void *userData) {
+#ifdef SALT
+    pinMode(context,0,trigIn1,INPUT);
+    pinMode(context,0,trigIn2,INPUT);
+    pinMode(context,0,trigIn3,INPUT);
+    pinMode(context,0,trigIn4,INPUT);
+
+    pinMode(context,0,trigOut1,OUTPUT);
+    pinMode(context,0,trigOut2,OUTPUT);
+    pinMode(context,0,trigOut3,OUTPUT);
+    pinMode(context,0,trigOut4,OUTPUT);
+#endif
+
+
+
 	gMecApi=new mec::MecApi();
 	gMecCallback=new BelaMecCallback();
 	gMecApi->init();
@@ -181,15 +222,50 @@ const int decimation = 5;  // = 550/seconds
 long renderFrame = 0;
 void render(BelaContext *context, void *userData)
 {
+
+
+#ifdef SALT
+    drivePwm(context,pwmOut);
+
+    setLed(context, ledOut1, 2);
+    setLed(context, ledOut2, 1);
+    setLed(context, ledOut3, 0);
+    setLed(context, ledOut4, 1);
+
+    // static unsigned lsw,/*ltr1,*/ ltr2,ltr3,ltr4;
+    // static unsigned led_mode=0; // 0 = normal
+    // static unsigned led_counter=0;
+
+    // unsigned sw  = digitalRead(context, 0, switch1);  //next layout
+    // // unsigned tr1 = digitalRead(context, 0, trigIn1);  
+    // unsigned tr2 = digitalRead(context, 0, trigIn2);  //quantize 
+    // unsigned tr3 = digitalRead(context, 0, trigIn3);
+    // unsigned tr4 = digitalRead(context, 0, trigIn4);
+
+
+    // if(sw  && !lsw)  { 
+    //     // gCallback->nextLayout(); 
+    //     led_counter=2100;
+    //     led_mode=1;
+    // }
+    
+    // lsw =  sw;
+    // // ltr1 = tr1;
+    // ltr2 = tr2;
+    // ltr3=  tr3;
+    // ltr4=  tr4;
+#endif
+
+
 	Bela_scheduleAuxiliaryTask(gMecProcessTask);
 	
 	renderFrame++;
 	// silence audio buffer
-	for(unsigned int n = 0; n < context->audioFrames; n++) {
-		for(unsigned int channel = 0; channel < context->audioOutChannels; channel++) {
-			audioWrite(context, n, channel, 0.0f);
-		}
-	}
+	// for(unsigned int n = 0; n < context->audioFrames; n++) {
+	// 	for(unsigned int channel = 0; channel < context->audioOutChannels; channel++) {
+	// 		audioWrite(context, n, channel, 0.0f);
+	// 	}
+	// }
 	
 	gMecCallback->render(context);
 	

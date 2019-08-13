@@ -105,6 +105,7 @@ protected:
 
 	
 	float transpose (float pitch, int octave, int semi) {
+		// note: pitch here is already scale to 0..1
 		return pitch + (((( START_OCTAVE + octave) * 12 ) + semi) *  semiMult_ );
 	}
 
