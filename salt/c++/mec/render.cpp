@@ -11,9 +11,9 @@ class BelaMecCallback;
 BelaMecCallback* 	gMecCallback=NULL;
 
 
-static constexpr BREATH_CTRLID=0;
-static constexpr RIBBON_1_CTRLID=0x10; 
-static constexpr RIBBON_2_CTRLID=0x11;
+static constexpr unsigned BREATH_CTRLID=0;
+static constexpr unsigned RIBBON_1_CTRLID=0x10; 
+static constexpr unsigned RIBBON_2_CTRLID=0x11;
 
 
 AuxiliaryTask gMecProcessTask;
@@ -97,8 +97,8 @@ public:
         float z         = pressure(z_,          analogRead(context, 0, 2) * 2);
         float amp       = audioAmp(z_,          analogRead(context, 0, 2) * 2);
         float breath    = scaleBreath(breath_,  analogRead(context, 0, 3) * 2);
-        float ribbon1   = scaleRibbon(ribbon[0]_,  analogRead(context, 0, 4) * 2);
-        float ribbon2   = scaleRibbon(ribbon[0]_,  analogRead(context, 0, 5) * 2);
+        float ribbon1   = scaleRibbon(ribbon_[0],  analogRead(context, 0, 4) * 2);
+        float ribbon2   = scaleRibbon(ribbon_[1],  analogRead(context, 0, 5) * 2);
 
         float a[8];
         a[0] = note;

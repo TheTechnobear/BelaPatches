@@ -1,0 +1,15 @@
+{
+    "mec"  :  {
+        "osct3d" : {
+            "port" : 3123
+        }
+    },
+
+    "mec-app"  :  {
+        "outputs" : {
+            "_console" : {
+                "throttle" : 0
+            }
+        }
+    }
+}
