@@ -27,14 +27,14 @@ public:
 	
     void touchOn(int touchId, float note, float x, float y, float z) override {
        //rt_printf("touchOn %i , %f, %f %f %f\n", touchId,note,x,y,z);
-		if(!active_) {
+		//if(!active_) {
 			active_=true;
 			touchId_=touchId;
 			note_=note;
 			x_=x;
 			y_=y;
 			z_=z;
-		}
+		//}
     }
     
 

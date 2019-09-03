@@ -106,8 +106,8 @@ public:
 					pitch = transpose(t.pitch_, int((analogRead(context, 0, 0 + zoneOffset) - 0.5) * 6) ,zoneTranspose);
 				}
 				float y = scaleY(t.y_,analogRead(context, 0, 1 + zoneOffset)* 2);
-				float z = pressure(t.z_,analogRead(context, 0, 2 + zoneOffset) * 2);
-				float amp = audioAmp(t.z_,analogRead(context, 0, 2 + zoneOffset) * 2);
+				float z = pressure(t.z_,analogRead(context, 0, 2 + zoneOffset) * 1.3f);
+				float amp = audioAmp(t.z_,analogRead(context, 0, 2 + zoneOffset) * 1.3f);
 				unsigned trigPin = t.zone_==1 ? trigOut1 : trigOut3;
 				for(unsigned int n = 0; n < context->digitalFrames; n++) {
 					digitalWriteOnce(context, n,trigPin ,t.active_);	
