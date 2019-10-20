@@ -5,7 +5,13 @@
 #include <iostream>
 
 #include <libraries/Scope/Scope.h>
+#include <libraries/Gui/Gui.h>
+
 Scope scope;
+Gui gui;
+
+float guiBuf[] = {0.0f};
+
 
 class Calibrator {
 public: 
@@ -90,6 +96,9 @@ bool digInTrans[MAX_DIG];
 bool setup(BelaContext *context, void *userData)
 {
 	scope.setup(2, context->audioSampleRate);
+	gui.setup(context->projectName);
+	gui.setBuffer('f', 1); // Index = 0
+	gui.setBuffer('f', 1); // Index = 1
 
 	calibrator=std::make_shared<Calibrator>();
 	for(unsigned n=0;n<MAX_DIG;n++) {
@@ -101,6 +110,9 @@ bool setup(BelaContext *context, void *userData)
 
 void render(BelaContext *context, void *userData)
 {
+	static unsigned sendCount =0;
+	sendCount++;
+	
 	static constexpr unsigned but1 = 15;
 	// static constexpr unsigned but2 = 14;
 	
@@ -130,6 +142,22 @@ void render(BelaContext *context, void *userData)
 		}
 	}
 
+	if(! (sendCount % 1000)) {	
+		guiBuf[0] = offset;
+		gui.sendBuffer(0,guiBuf);
+		
+		DataBuffer buffer = gui.getDataBuffer(1);
+		// Retrieve contents of the buffer as floats
+		float* data = buffer.getAsFloat();
+		
+		static unsigned idx = 0;
+		if(idx!=data[0]) {
+			idx = data[0];
+			rt_printf("index change %d \n", idx);
+		}
+	}
+	
+	
 }
 void cleanup(BelaContext *context, void *userData)
 {
