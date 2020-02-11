@@ -19,13 +19,20 @@ clone the repository into a directory
 mkdir ~/projects
 cd ~/projects
 git clone https:https:/github.com/thetechnobear/BelaPatches
+cd BelaPatches
 ```
-
 
 Some patches (particulary my C++ ones), will need to have external libraries built, so we need to pull the external submodules
 
 ```
-git submodule update --init --recursive .
+git submodule update --init --recursive 
+```
+
+now install some dev libraries we will need to build
+```
+apt-get install libusb-1.0-0-dev
+apt-get install libasound2-dev
+apt-get install libcairo2-dev 
 ```
 
 now we can build requisite libraries etc
@@ -33,7 +40,7 @@ now we can build requisite libraries etc
 ```
 mkdir build
 cd build
-cmake ..
+cmake -DBELA=1 ..
 make
 ```
 

@@ -6,7 +6,7 @@
 #include <math.h>
 #include <iostream>
 
-#include <Scope.h>
+#include <libraries/Scope/Scope.h>
 Scope scope;
 
 #include "defs.h"

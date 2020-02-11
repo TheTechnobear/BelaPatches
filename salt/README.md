@@ -19,13 +19,13 @@ splite : uses Madrona Labs code for the soundplane, note: it is depend on my Sou
 
  I create a link in the bela projects to patches i want to use 
 ```
-cd ~/Bela/Projects
+cd ~/Bela/projects
 ln -s ~/projects/BelaPatches/salt/c++/splite
 ```
 
 if you want you can rename, e.g. to include as a loop 
 ```
-cd ~/Bela/Projects
+cd ~/Bela/projects
 ln -s ~/projects/BelaPatches/salt/c++/splite loop_1_splite
 ```
 
