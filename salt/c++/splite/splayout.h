@@ -71,31 +71,31 @@ protected:
 	}
 	
 
-	float scaleY(float y, float mult) {
-		return ( (y * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
+	float scaleY(float v, float mult) {
+		return ( (v * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
 	}
 
-	float scaleX(float x, float mult) {
-		return ( (x * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
+	float scaleX(float v, float mult) {
+		return ( (v * mult)  * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
 	}
 	
-	float gridY(float y, float start, float end) {
-		float sz = (end-start) / 2.0f;
-		return ((y -start ) - sz) / sz;	
+	float gridY(float v, float start, float end) {
+		float sz = (end-start);
+		return ((v -start ) - (sz/2.0f) ) / sz;	
 	}
 
-	float gridX(float x, float start, float end) {
-		float sz = (end-start) / 2.0f;
-		return ((x -start ) - sz) / sz;	
+	float gridX(float v, float start, float end) {
+		float sz = (end-start);
+		return ((v -start ) - (sz/2.0f) ) / sz;	
 	}
 
 	
-	float offsetY(float y, float offset) {
-		return ( (y + offset) * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
+	float offsetY(float v, float offset) {
+		return ( (v + offset) * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
 	}
 
-	float offsetX(float x, float offset) {
-		return ( (x + offset) * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
+	float offsetX(float v, float offset) {
+		return ( (v + offset) * ( 1.0f-ZERO_OFFSET) )  + ZERO_OFFSET ;	
 	}
 
 

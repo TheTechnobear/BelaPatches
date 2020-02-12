@@ -16,6 +16,7 @@ Scope scope;
 #include "splayout_1.h"
 #include "splayout_2.h"
 #include "splayout_4.h"
+#include "splayout_3xy1.h"
 #include "splayout_4xy.h"
 
 
@@ -36,6 +37,7 @@ public:
 		layouts_.push_back(new ZoneLayout_1());
 		layouts_.push_back(new ZoneLayout_2());
 		layouts_.push_back(new ZoneLayout_4());
+		layouts_.push_back(new ZoneLayout_3XY1());
 		layouts_.push_back(new ZoneLayout_4XY());
 		layouts_[layoutIdx_]->quantMode(quantMode_);
 		layouts_[layoutIdx_]->pitchMode(pitchMode_);
