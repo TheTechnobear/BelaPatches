@@ -19,6 +19,8 @@ Scope scope;
 #include "splayout_3xy1.h"
 #include "splayout_4xy.h"
 
+//carrier set to use, default is 0
+static constexpr int SOUNDPLANE_CARRIER_SET=5;
 
 AuxiliaryTask gSPLiteProcessTask;
 
@@ -143,6 +145,7 @@ bool setup(BelaContext *context, void *userData)
 	pinMode(context,0,trigOut4,OUTPUT);
 
 	gpDevice = new SPLiteDevice();
+	gpDevice->overrideCarrierSet(SOUNDPLANE_CARRIER_SET);
     gpDevice->addCallback(gCallback);
     gpDevice->maxTouches(MAX_TOUCH);
     gpDevice->start();
