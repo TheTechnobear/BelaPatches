@@ -31,9 +31,9 @@ static midi_byte_t midiStart=0xFA;
 // static midi_byte_t midiContinue=0xFB;
 static midi_byte_t midiStop=0xFC;
 
-unsigned quantum_=4;
-unsigned steps_per_beat_ = 1;
-unsigned ppqn_per_beat=24;
+float quantum_=4.0f;
+float steps_per_beat_ = 1.0f;
+float ppqn_per_beat=24.0f;
 
 volatile unsigned step_=0; 
 volatile bool clockTrig_=false;
@@ -106,13 +106,22 @@ static void link_task(void* arg) {
 			}
 			barTrig_=true;
 		}
-		
-		// a ppqn or the quantum (=4 = quarter notes)			
+
+		// //this gives in accurate clock... perhaps ppqn calc is not accurate enough
+		// const auto curr_ppqn = sessionState.phaseAtTime(curr_time, steps_per_beat_/ppqn_per_beat);
+		// const auto prev_ppqn = sessionState.phaseAtTime(prev_time, steps_per_beat_/ppqn_per_beat);
+		// if (curr_ppqn < prev_ppqn) {
+		// 	writeMidiClock=true;
+		// }
+
+	    //calc ppqn, off prev_phase results in inaccurate/missed ticks?
 		const int curr_ppqn = fmod(curr_phase * ppqn_per_beat , ppqn_per_beat);
-		const int prev_ppqn = fmod(prev_phase * ppqn_per_beat , ppqn_per_beat);
+		static int prev_ppqn=0;
 		if(curr_ppqn !=prev_ppqn) {
 			writeMidiClock=true;
 		}
+		prev_ppqn=curr_ppqn;
+
 	} else {
 		; // pre-roll
 	}
