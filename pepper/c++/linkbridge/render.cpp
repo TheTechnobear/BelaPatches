@@ -17,7 +17,6 @@ AuxiliaryTask task_;
 std::vector<Midi*> midiPorts_;
 bool midiEnabled_=false;
 
-bool reset_flag_=true;
 static unsigned blockTimeuSec_=0;
 float sampleTime_=0.0f;
 
@@ -26,27 +25,29 @@ float sampleTime_=0.0f;
 
 const unsigned ledPins[] = {6,7,10,2,3,0,1,4,5,8 };
 const unsigned buttonPins [] = {15,14};
-	
-unsigned quantum_=4;
-double steps_per_beat_ = 1;
-double ppqn_per_beat=24;
-float curr_beat_time=0.f,prev_beat_time=0.0f;
-
-unsigned step_=0;
-unsigned curr_ppqn=0,prev_ppqn=24;
 
 static midi_byte_t midiClock=0xF8;
 static midi_byte_t midiStart=0xFA;
 // static midi_byte_t midiContinue=0xFB;
 static midi_byte_t midiStop=0xFC;
 
+unsigned quantum_=4;
+unsigned steps_per_beat_ = 1;
+unsigned ppqn_per_beat=24;
+
+volatile unsigned step_=0; 
+volatile bool clockTrig_=false;
+volatile bool barTrig_=false;
+
+
 bool requestStartStop_=false;
-bool playing_=false;
+bool clockWhenStopped_=true;
+volatile bool scheduleStart_=false;
+volatile bool playing_=false;
 
-
-bool writeMidiStart=false;
-bool writeMidiClock=false;
-bool writeMidiStop=false;
+volatile bool writeMidiStart=false;
+volatile bool writeMidiClock=false;
+volatile bool writeMidiStop=false;
 
 int latency_=0.0f;
 
@@ -56,60 +57,71 @@ static void link_task(void* arg) {
 	std::chrono::microseconds latency_offset(latency_ * 1000); 
 
 	auto sessionState = link_->captureAudioSessionState();
+    std::chrono::microseconds prev_time = time_filter.sampleTimeToHostTime(sampleTime_) + latency_offset;
 	sampleTime_ += blockTimeuSec_; /// increase sample time based on time of single callback
     std::chrono::microseconds curr_time = time_filter.sampleTimeToHostTime(sampleTime_) + latency_offset;
 
 	if(requestStartStop_) {
 		bool start=!playing_;
 		requestStartStop_=false;
-		sessionState.setIsPlayingAndRequestBeatAtTime(start,curr_time,0,quantum_);
+		if(start) {
+			sessionState.setIsPlaying(true, curr_time);
+			scheduleStart_ = true;
+		} else {
+		    writeMidiStop =true;
+			sessionState.setIsPlaying(false, curr_time);
+		}
 	}
 
+	if (!playing_ && sessionState.isPlaying())	{
+		sessionState.requestBeatAtStartPlayingTime(0,quantum_);
+		playing_ = true;
+	}
+	else if (playing_ && !sessionState.isPlaying())	{
+		playing_ = false;
+	}
+    link_->commitAudioSessionState(sessionState);
 
-    if( reset_flag_) {
-    	sessionState.requestBeatAtTime(prev_beat_time, curr_time, quantum_);
-    	curr_beat_time = sessionState.beatAtTime(curr_time, quantum_);
-    	reset_flag_=false;
-    } else {
-    	curr_beat_time = sessionState.beatAtTime(curr_time, quantum_);
-    }
 
-    const double curr_phase = fmod(curr_beat_time, quantum_);
-    
-    if (curr_beat_time > prev_beat_time) {
-		const double prev_phase = fmod(prev_beat_time, quantum_);
-		const double prev_step = floor(prev_phase * steps_per_beat_);
-		const double curr_step = floor(curr_phase * steps_per_beat_);
-		
-		if (prev_phase - curr_phase > quantum_ / 2 || prev_step != curr_step) {
-			//?
+    clockTrig_=false;
+    barTrig_=false;
+	const auto curr_beat_time = sessionState.beatAtTime(curr_time, quantum_);
+	// const auto prev_beat_time = sessionState.beatAtTime(prev_time, quantum_);
+	if (curr_beat_time >= 0.) { // are we pre-roll or not!
+		const auto curr_phase = sessionState.phaseAtTime(curr_time, steps_per_beat_);
+		const auto prev_phase = sessionState.phaseAtTime(prev_time, steps_per_beat_);
+		const auto curr_step = floor(sessionState.phaseAtTime(curr_time, quantum_));
+		// const auto prev_step = floor(sessionState.phaseAtTime(prev_time, quantum_));
+		if (curr_phase < prev_phase) {
+			// beat
+			step_ = floor(curr_step);
+			clockTrig_=true;
 		}
-
-		if(step_!=fmod(curr_phase,quantum_)) {
-			step_=fmod(curr_phase,quantum_);
+		if(curr_step == 0 ) {
+			// bar beat
+			if(scheduleStart_) {
+				scheduleStart_=false;
+				writeMidiStart=true;
+				writeMidiClock=true;
+			}
+			barTrig_=true;
 		}
 		
-		const unsigned prev_ppqn = unsigned(floor(prev_phase * ppqn_per_beat));
-		const double curr_ppqn = unsigned(floor(curr_phase * ppqn_per_beat));
-		if(playing_ && curr_ppqn !=prev_ppqn) {
+		// a ppqn or the quantum (=4 = quarter notes)			
+		const int curr_ppqn = fmod(curr_phase * ppqn_per_beat , ppqn_per_beat);
+		const int prev_ppqn = fmod(prev_phase * ppqn_per_beat , ppqn_per_beat);
+		if(curr_ppqn !=prev_ppqn) {
 			writeMidiClock=true;
 		}
-	
-    }
-    prev_beat_time = curr_beat_time;
-
-
-    link_->commitAudioSessionState(sessionState);
-    
+	} else {
+		; // pre-roll
+	}
 }
 
 void startStopCallback(bool isPlaying) {
-	if(isPlaying)	{
-		writeMidiStart=true;
-	} else {
-		writeMidiStop=true;
-	}
-	playing_ = isPlaying;
+	// this called when THIS client wants to start/stop, not synced
+	rt_printf("start/stop - %d numpeers\n", (int) link_->numPeers());
+
 }
 
 void tempoCallback(double bpm) {
@@ -151,28 +163,19 @@ bool setup(BelaContext *context, void *userData)
 void render(BelaContext *context, void *userData)
 {
 	static bool buttonState[2] { false, false};
-	static unsigned lastStep_ = 4;
 	static unsigned clockCounter=0; 
-	static unsigned blinkTime=1500;
+	static unsigned blinkTime=750;
+	static unsigned trigTime=10;
 
 	static unsigned trigCounter=0; 
+	static unsigned barCounter=0; 
 
-	for(int i=0;i<4;i++) {
-		digitalWrite(context, 0, ledPins[i], 0);
+	// controls
+	int latency = ((analogRead(context,0,0) - 0.5 ) * 32.0f); // +/- 16ms
+	if(latency!=latency_) {
+		latency_=latency;
+		rt_printf("latency offset=%d\n",latency_);
 	}
-	
-    if(playing_) digitalWrite(context, 0, ledPins[step_],1);
-	
-	bool clockTrig = lastStep_!=step_;
-	if(clockTrig) {
-		// rt_printf("clockTrig\n");
-		lastStep_=step_;
-		
-		if(playing_) trigCounter=10; // only fire trig if playing
-		clockCounter=blinkTime/2;
-	}
-	if(trigCounter>0) trigCounter--;
-	if(clockCounter>0) clockCounter--;
 
 	bool but0 = digitalRead(context,0,buttonPins[0]);
 	if(but0 && !buttonState[0]) {
@@ -182,34 +185,49 @@ void render(BelaContext *context, void *userData)
 
 	bool but1 = digitalRead(context,0,buttonPins[1]);
 	if(but1 && !buttonState[1]) {
-		midiEnabled_=!midiEnabled_;
+		clockWhenStopped_=!clockWhenStopped_;
 	}
 	buttonState[1]=but1;
 
 
+	// trig handling
+	bool sendclock = clockWhenStopped_ || (playing_  && !scheduleStart_);
+	if(sendclock) {
+		if(clockTrig_) {
+			trigCounter=trigTime;
+		    clockCounter=blinkTime;
+		} 
+		if(barTrig_) {
+			barCounter=trigTime;
+		}
+	}
 
-	digitalWrite(context,0,ledPins[9],midiEnabled_); // miid
-	digitalWrite(context,0,ledPins[8],clockCounter>0); //clock
-	digitalWrite(context,0,ledPins[9],playing_); //play/stop
+	if(trigCounter>0) trigCounter--;
+	if(barCounter>0) barCounter--;
+	if(clockCounter>0) clockCounter--;
+
+	// leds
+	for(int i=0;i<4;i++) {
+		digitalWrite(context, 0, ledPins[i], 0);
+	}
+    if(playing_  && !scheduleStart_) digitalWrite(context, 0, ledPins[step_],1);
+
+	digitalWrite(context,0,ledPins[7],clockWhenStopped_); // send clock when stopped?
+	digitalWrite(context,0,ledPins[8],playing_ || scheduleStart_ ); //play or cued  / stop 
+	digitalWrite(context,0,ledPins[9],clockCounter>0); //clock
 	
 	for(unsigned int n = 0; n < context->analogFrames; n++) {
-		analogWriteOnce(context,n,0,(trigCounter>0));
-		analogWriteOnce(context,n,1,playing_);
+		analogWriteOnce(context,n,0,(trigCounter>0)); // trig on beat
+		analogWriteOnce(context,n,1,playing_); // playing gate
+		analogWriteOnce(context,n,2,(barCounter>0)); // trig on bar
 	}
-	// latency
-	int latency = ((analogRead(context,0,0) - 0.5 ) * 32.0f); // +/- 16ms
-	if(latency!=latency_) {
-		latency_=latency;
-		rt_printf("latency offset=%d\n",latency_);
-	}
-	
-	
+
 	/// midi
-	if(midiEnabled_) {	
+	if(midiEnabled_) {
 		for(auto dev : midiPorts_) {
 		  if(dev->isOutputEnabled()) {
 		  	if(writeMidiStart) dev-> writeOutput(&midiStart, 1);
-		  	if(writeMidiClock) dev-> writeOutput(&midiClock, 1);
+		  	if(writeMidiClock && sendclock) dev-> writeOutput(&midiClock, 1);
 		  	if(writeMidiStop)  dev-> writeOutput(&midiStop, 1);
 		  }
 		}
