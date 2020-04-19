@@ -10,7 +10,7 @@
 Scope scope;
 Gui gui;
 
-float guiBuf[] = {0.0f};
+float guiBuf[] = {0.0f,0,0f,0.0f,0.0f,0,0f};
 
 
 class Calibrator {
@@ -98,6 +98,9 @@ bool setup(BelaContext *context, void *userData)
 	scope.setup(2, context->audioSampleRate);
 	gui.setup(context->projectName);
 	gui.setBuffer('f', 1); // Index = 0
+	gui.setBuffer('f', 1); // Index = 1
+	gui.setBuffer('f', 1); // Index = 1
+	gui.setBuffer('f', 1); // Index = 1
 	gui.setBuffer('f', 1); // Index = 1
 
 	calibrator=std::make_shared<Calibrator>();
