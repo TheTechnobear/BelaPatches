@@ -1,20 +1,30 @@
 var guiSketch = new p5(function( sketch ) {
 
     let canvas_dimensions = [sketch.windowWidth, sketch.windowHeight];
+    let fH = 0;
+    let fW = 0;
     
     sketch.setup = function() {
         sketch.createCanvas(canvas_dimensions[0], canvas_dimensions[1]);
         sketch.background('rgba(28, 232, 181, 0.5)');
-        sketch.textSize(sketch.round(sketch.windowWidth/50));
+        sketch.textSize(14);
         sketch.textFont('Courier');
         sketch.textAlign(sketch.LEFT, sketch.TOP);
 
-        sketch.text("Calibration Utility",10 ,10);
-        sketch.text("A utility for calibration of analog inputs and outputs",10 ,40);
+        fW=sketch.textWidth('A') * 1.1;
+        fH=sketch.textSize() * 1.5;
 
-        sketch.text("Board",10 ,70);
+        tR = fH;
+        tC = fW;
+        sketch.text("Calibration Utility",tC,tR); 
+        tR += fH;
+
+        sketch.text("A utility for calibration of analog inputs and outputs",tC,tR);
+        tR += fH;
+
+        sketch.text("Board",tC ,tR); tC+= fW*5;
         selBoard = sketch.createSelect();
-        selBoard.position(100, 70);
+        selBoard.position(tC, tR);
         selBoard.option('Salt');
         selBoard.option('Pepper');
         selBoard.option('Bela');
@@ -23,73 +33,17 @@ var guiSketch = new p5(function( sketch ) {
             Bela.data.sendBuffer(1, 'float', this.elt.selectedIndex);
         });
 
-        sketch.text("Target Voltage", 250, 70);
 
 
-        targetVolt = inputNum(450,70,100,0.0, function() {
-            // body...
-        });
- 
+        tR+= fH*3;
+        tC= fW;
 
+        contentC=tC;
+        contentR=tR;
 
-        // input section
-        sketch.text("Input", 10, 100);
-        selTargetIn = sketch.createSelect();
-        selTargetIn.position(10, 130);
-        fillIO(selTargetIn);
-        selTargetIn.changed( function() {
-            Bela.data.sendBuffer(2, 'float', this.elt.selectedIndex);
-        });
+        drawInput(contentC,contentR);
+        drawOutput(contentC + fW*40,contentR);
 
-
-        sketch.text("Min", 10, 150);
-        sketch.text("Max", 80, 150);
-        minInVolt = inputNum(10,170,50,0.0, function() {
-            // body...
-        });
-        maxInVolt = inputNum(80,170,50,0.0, function() {
-            // body...
-        });
-
-        inDone = sketch.createButton('Calibrated');
-        inDone.position(10,200);
-        inDone.mousePressed (function() {
-            // todo 
-        });
- 
-
-
-
-        // output section
-        sketch.text("Output", 450, 100);
-        selTargetOut = sketch.createSelect();
-        fillIO(selTargetOut);
-
-        // while(selTargetOut.elt.options.length>0) {
-        //     selTargetOut.elt.options.remove(0);
-        // }
-
-        selTargetOut.option(100);
-        selTargetOut.position(450, 130);
-        selTargetOut.changed( function() {
-            Bela.data.sendBuffer(3, 'float', this.elt.selectedIndex);
-        });
-
-        sketch.text("Min", 450, 150);
-        sketch.text("Max", 520, 150);
-        minOutVolt = inputNum(450,170,50,0.0, function() {
-            statusLine(this.value);
-        });
-
-        maxOutVolt = inputNum(520,170,50,0.0, function() {
-            // body...
-        });
-
-        outDone = sketch.createButton('Calibrated');
-        outDone.position(450,200);
-        outDone.mousePressed (function() {
-            // todo 
-        });
 
   //       sketch.textAlign(sketch.LEFT, sketch.TOP);
 
@@ -119,6 +73,150 @@ var guiSketch = new p5(function( sketch ) {
         // sketch.noLoop();
     }
 
+
+    function drawInput(inC,inR) {
+        tC=inC;
+        tR=inR;
+
+        sketch.text("Input", tC, tR);
+        tC+= fW*15;
+        selTargetIn = sketch.createSelect();
+        selTargetIn.position(tC, tR);
+        fillIO(selTargetIn);
+        selTargetIn.changed( function() {
+            Bela.data.sendBuffer(2, 'float', this.elt.selectedIndex);
+        });
+
+        tC=inC;
+        tR+=fH;
+
+        sketch.text("Target (v)", tC,tR);
+        tC+= fW*15;
+
+        targetInVolt = inputNum(tC,tR,100,0.0, function() {
+            // body...
+        });
+
+        tR+= fH;
+        tC=inC;
+
+        sketch.text("Theory (v)", tC,tR);
+        tC+= fW*15;
+        sketch.text("0.001", tC,tR);
+        tR+= fH;
+
+        tR+=2*fH;
+
+        inDone = sketch.createButton('Calibrated');
+        inDone.position(tC,tR);
+        inDone.mousePressed (function() {
+            // todo 
+        });
+ 
+        tR+= fH * 3;
+        tC=inC;
+        sketch.text("actual (dec)", tC,tR); 
+        tC+= fW*15;
+        sketch.text("0.001", tC,tR);
+        tR+= fH;
+
+        tC=inC;
+        sketch.text("calibrated (dec)", tC,tR); 
+        tC+= fW*15;
+        sketch.text("0.001", tC,tR);
+        tR+= fH;
+
+        tC=inC;
+        sketch.text("calibrated (v)", tC,tR); 
+        tC+= fW*15;
+        sketch.text("0.001", tC,tR);
+        tR+= fH;
+
+    }
+
+    function drawOutput(inC,inR) {
+        tC=inC;
+        tR=inR;
+
+        sketch.text("Output", tC, tR);
+        tC+= fW*15;
+        selTargetOut = sketch.createSelect();
+        selTargetOut.position(tC, tR);
+        fillIO(selTargetOut);
+        selTargetOut.changed( function() {
+            Bela.data.sendBuffer(3, 'float', this.elt.selectedIndex);
+        });
+
+        tC=inC;
+        tR+=fH;
+
+        sketch.text("Target (v)", tC,tR);
+        tC+= fW*15;
+
+        targetOutVolt = inputNum(tC,tR,100,0.0, function() {
+            // body...
+        });
+
+        tR+= fH;
+        sketch.text("Min", tC, tR);
+        minOutVolt = inputNum(tC,tR+fH,fW*5,0.0, function() {
+            // body...
+        });
+        sketch.text("Max", tC + fW*10, tR);
+        maxOutVolt = inputNum(tC + fW*10,tR+fH,fW*5,0.0, function() {
+            // body...
+        });
+
+
+        tC=inC;
+        tR+=fH*3;
+
+        outDownCourse = sketch.createButton('<<');
+        outDownCourse.position(tC,tR);
+        outDownCourse.mousePressed (function() {
+            // todo 
+        });
+        tC+= 5*fW;
+        outDownFine = sketch.createButton('<');
+        outDownFine.position(tC,tR);
+        outDownFine.mousePressed (function() {
+            // todo 
+        });
+        tC+= 5*fW;
+        outDone = sketch.createButton('Calibrated');
+        outDone.position(tC,tR);
+        outDone.mousePressed (function() {
+            // todo 
+        });
+        tC+= 10*fW;
+        outUpFine = sketch.createButton('>');
+        outUpFine.position(tC,tR);
+        outUpFine.mousePressed (function() {
+            // todo 
+        });
+        tC+= 5*fW;
+        outUpCourse = sketch.createButton('>>');
+        outUpCourse.position(tC,tR);
+        outUpCourse.mousePressed (function() {
+            // todo 
+        });
+
+
+        tR+= fH * 3;
+        tC=inC;
+        sketch.text("actual (dec)", tC,tR); 
+        tC+= fW*15;
+        sketch.text("0.001", tC,tR);
+        tR+= fH;
+
+        tC=inC;
+        sketch.text("calibrated (dec)", tC,tR); 
+        tC+= fW*15;
+        sketch.text("0.001", tC,tR);
+        tR+= fH;
+
+    }
+
     function inputNum(x,y,sz,init,fn) {
         let c= sketch.createInput(init,"number");
         c.position(x,y);
@@ -129,6 +227,7 @@ var guiSketch = new p5(function( sketch ) {
     }
     
     function fillIO(sel) {
+        sel.option('Min');
         sel.option(1);
         sel.option(2);
         sel.option(3);
@@ -137,7 +236,8 @@ var guiSketch = new p5(function( sketch ) {
         sel.option(6);
         sel.option(7);
         sel.option(8);
-        sel.value(1);
+        sel.option('Max');
+        sel.value('Min');
     }
     
     function selectTargetIn() {

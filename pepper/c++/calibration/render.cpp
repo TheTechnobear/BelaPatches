@@ -10,7 +10,7 @@
 Scope scope;
 Gui gui;
 
-float guiBuf[] = {0.0f,0,0f,0.0f,0.0f,0,0f};
+float guiBuf[] = {0.0f,0.0f,0.0f,0.0f,0.0f};
 
 
 class Calibrator {
