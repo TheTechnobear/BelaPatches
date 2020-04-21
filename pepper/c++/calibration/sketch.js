@@ -1,8 +1,46 @@
 var guiSketch = new p5(function( sketch ) {
 
+    const dataIn = {
+        DI_BOARD : 0,
+        DI_I_TARGET_CH : 1,
+        DI_I_TARGET_VOLT : 2,
+        DI_I_CAL_TRIG : 3,
+        DI_O_TARGET_CH : 4,
+        DI_O_TARGET_VOLT : 5, 
+        DI_O_MIN_VOLT : 6,
+        DI_O_MAX_VOLT : 7,
+        DI_O_T_FLOAT : 8,
+        DI_O_CAL_TRIG : 9,
+        DI_MAX : 10
+    };
+
+
+    const dataOut = {
+        DO_I_MIN_VOLT : 0 ,
+        DO_I_MAX_VOLT : 1 ,
+        DO_I_THEORY_VOLT : 2,
+        DO_I_ACT_FLOAT : 3 ,
+        DO_I_CAL_FLOAT : 4,
+        DO_I_CAL_VOLT : 5,
+        DO_O_ACT_FLOAT : 6,
+        DO_O_CAL_FLOAT : 7,
+        DO_O_MIN_VOLT : 8,
+        DO_O_MAX_VOLT : 9,
+        DO_MAX : 10
+    };
+
+    const boardType = {
+        BT_SALT : 0,
+        BT_PEPPER : 1 ,
+        BT_BELA : 2 ,
+        BT_MAX : 3
+    };
+
+
     let canvas_dimensions = [sketch.windowWidth, sketch.windowHeight];
     let fH = 0;
     let fW = 0;
+    let dataBuffer=new Float32Array(dataIn.DI_MAX);
     
     sketch.setup = function() {
         sketch.createCanvas(canvas_dimensions[0], canvas_dimensions[1]);
@@ -30,7 +68,8 @@ var guiSketch = new p5(function( sketch ) {
         selBoard.option('Bela');
         // selBoard.value('Pepper');
         selBoard.changed( function() {
-            Bela.data.sendBuffer(1, 'float', this.elt.selectedIndex);
+            dataBuffer[dataIn.DI_BOARD] = this.elt.selectedIndex;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
 
@@ -53,6 +92,8 @@ var guiSketch = new p5(function( sketch ) {
   //       sliderOffset = sketch.createSlider(-1, 1, 0,0.0001);
   //       sliderOffset.position(0, 200);
   //       sliderOffset.size(300);
+
+
 
     }
 
@@ -84,7 +125,7 @@ var guiSketch = new p5(function( sketch ) {
         selTargetIn.position(tC, tR);
         fillIO(selTargetIn);
         selTargetIn.changed( function() {
-            Bela.data.sendBuffer(2, 'float', this.elt.selectedIndex);
+            // Bela.data.sendBuffer(2, 'float', this.elt.selectedIndex);
         });
 
         tC=inC;
@@ -94,7 +135,8 @@ var guiSketch = new p5(function( sketch ) {
         tC+= fW*15;
 
         targetInVolt = inputNum(tC,tR,100,0.0, function() {
-            // body...
+            dataBuffer[dataIn.DI_I_TARGET_VOLT] = this.value;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
         tR+= fH;
@@ -144,7 +186,7 @@ var guiSketch = new p5(function( sketch ) {
         selTargetOut.position(tC, tR);
         fillIO(selTargetOut);
         selTargetOut.changed( function() {
-            Bela.data.sendBuffer(3, 'float', this.elt.selectedIndex);
+            // Bela.data.sendBuffer(, 'float', this.elt.selectedIndex);
         });
 
         tC=inC;
@@ -227,7 +269,6 @@ var guiSketch = new p5(function( sketch ) {
     }
     
     function fillIO(sel) {
-        sel.option('Min');
         sel.option(1);
         sel.option(2);
         sel.option(3);
@@ -236,8 +277,7 @@ var guiSketch = new p5(function( sketch ) {
         sel.option(6);
         sel.option(7);
         sel.option(8);
-        sel.option('Max');
-        sel.value('Min');
+        sel.value(1);
     }
     
     function selectTargetIn() {
