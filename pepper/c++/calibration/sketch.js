@@ -1,4 +1,4 @@
-var guiSketch = new p5(function( sketch ) {
+var guiSketch = new p5(function( p ) {
 
     const dataIn = {
         DI_BOARD : 0,
@@ -37,31 +37,47 @@ var guiSketch = new p5(function( sketch ) {
     };
 
 
-    let canvas_dimensions = [sketch.windowWidth, sketch.windowHeight];
-    let fH = 0;
-    let fW = 0;
-    let dataBuffer=new Float32Array(dataIn.DI_MAX);
-    
-    sketch.setup = function() {
-        sketch.createCanvas(canvas_dimensions[0], canvas_dimensions[1]);
-        sketch.background('rgba(28, 232, 181, 0.5)');
-        sketch.textSize(14);
-        sketch.textFont('Courier');
-        sketch.textAlign(sketch.LEFT, sketch.TOP);
+    var canvas_dimensions = [p.windowWidth, p.windowHeight];
+    var fH = 0;
+    var fW = 0;
+    var dataBuffer=new Float32Array(dataIn.DI_MAX);
 
-        fW=sketch.textWidth('A') * 1.1;
-        fH=sketch.textSize() * 1.5;
+
+    Bela.data.target.addEventListener('buffer-ready', function(event) {
+        if(event.detail ==0 && typeof Bela.data.buffers[0] != 'undefined') {
+            redraw();
+        }
+    });
+
+    var voltTextPos=[0,0];
+    var inTheoryVolt=[0,0];
+    var inActFloat=[0,0];
+    var inCalFloat=[0,0];
+    var inCalVolt=[0,0];
+    var outActFloat=[0,0];
+    var outCalFloat=[0,0];
+
+    p.setup = function() {
+        p.createCanvas(canvas_dimensions[0], canvas_dimensions[1]);
+        p.background(160);
+        p.fill(0);
+        p.textSize(14);
+        p.textFont('Courier');
+        p.textAlign(p.LEFT, p.TOP);
+
+        fW=p.textWidth('A') * 1.1;
+        fH=p.textSize() * 1.5;
 
         tR = fH;
         tC = fW;
-        sketch.text("Calibration Utility",tC,tR); 
+        p.text("Calibration Utility",tC,tR); 
         tR += fH;
 
-        sketch.text("A utility for calibration of analog inputs and outputs",tC,tR);
+        p.text("A utility for calibration of analog inputs and outputs",tC,tR);
         tR += fH;
 
-        sketch.text("Board",tC ,tR); tC+= fW*5;
-        selBoard = sketch.createSelect();
+        p.text("Board",tC ,tR); tC+= fW*5;
+        selBoard = p.createSelect();
         selBoard.position(tC, tR);
         selBoard.option('Salt');
         selBoard.option('Pepper');
@@ -71,11 +87,17 @@ var guiSketch = new p5(function( sketch ) {
             dataBuffer[dataIn.DI_BOARD] = this.elt.selectedIndex;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
+        dataBuffer[dataIn.DI_BOARD] = 0;
 
+        tR+=fH;
+        tC=fW;
+        p.text("Voltage ", tC, tR)
+        tC+=fW* 10;
+        voltTextPos = [tC,tR]
+        p.text("In: Na/Na Out: Na/Na",voltTextPos[0],voltTextPos[1]);
 
-
-        tR+= fH*3;
         tC= fW;
+        tR+= fH*3;
 
         contentC=tC;
         contentR=tR;
@@ -83,35 +105,57 @@ var guiSketch = new p5(function( sketch ) {
         drawInput(contentC,contentR);
         drawOutput(contentC + fW*40,contentR);
 
-
-  //       sketch.textAlign(sketch.LEFT, sketch.TOP);
-
-  //       string = "offset : "
-  //       sketch.text(string,0, 150);
-        
-  //       sliderOffset = sketch.createSlider(-1, 1, 0,0.0001);
-  //       sliderOffset.position(0, 200);
-  //       sliderOffset.size(300);
-
-
-
+        Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
     }
 
     function statusLine(v) {
-        sketch.rect(0,600,sketch.textWidth('AAAAAAAAAAAAAAAAAAA') , sketch.textSize() * 1.1);
-        sketch.text(v, 0,600);
+        p.rect(0,600,p.textWidth('AAAAAAAAAAAAAAAAAAA') , p.textSize() * 1.1);
+        p.text(v, 0,600);
     }
 
-    sketch.draw = function() {
-     
-        // sketch.textAlign(sketch.LEFT, sketch.TOP);
-        // let offset = Bela.data.buffers[0];
-        // string = offset;
-        // sketch.rect(190,150,sketch.textWidth('AAAAAAAAAAAAAAAAAAA') , sketch.textSize() * 1.1);
-        // sketch.text(string, 200,150);
-        // sliderOffset.value(offset);
-        
-        // sketch.noLoop();
+    function drawNum(x,y,str) {
+        p.stroke(160);
+        p.fill(160);
+        p.rect(x-fW,y,fW*20,fW*20,fH);
+        p.fill(0);
+        p.text(str,x,y);
+    }
+
+    function redraw() {
+        var buffer = Bela.data.buffers[0];
+        if(buffer.length==dataOut.DO_MAX) {
+            p.stroke(160);
+            p.fill(160);
+            tC=voltTextPos[0];tR=voltTextPos[1];
+            p.rect(tC,tR,fW*20,fH);
+            minIV=buffer[dataOut.DO_I_MIN_VOLT];
+            maxIV=buffer[dataOut.DO_I_MAX_VOLT];
+            minOV=buffer[dataOut.DO_O_MIN_VOLT];
+            maxOV=buffer[dataOut.DO_O_MAX_VOLT];
+            str = "In: "  + minIV.toString() + "/" + maxIV.toString()+ "";
+            str += "    ";
+            str +="Out: " + minOV.toString() + "/" + maxOV.toString()+ "";
+            p.fill(0);
+            p.text(str,tC,tR);
+
+            tC=inTheoryVolt[0];tR=inTheoryVolt[1];
+            drawNum(tC,tR,buffer[dataOut.DO_I_THEORY_VOLT]);
+
+            tC=inActFloat[0];tR=inActFloat[1];
+            drawNum(tC,tR,buffer[dataOut.DO_I_ACT_FLOAT]);
+            tC=inCalFloat[0];tR=inCalFloat[1];
+            drawNum(tC,tR,buffer[dataOut.DO_I_CAL_FLOAT]);
+            tC=inCalVolt[0];tR=inCalVolt[1];
+            drawNum(tC,tR,buffer[dataOut.DO_I_CAL_VOLT]);
+            tC=outActFloat[0];tR=outActFloat[1];
+            drawNum(tC,tR,buffer[dataOut.DO_O_ACT_FLOAT]);
+            tC=outCalFloat[0];tR=outCalFloat[1];
+            drawNum(tC,tR,buffer[dataOut.DO_O_CAL_FLOAT]);
+        }
+    }
+
+    p.draw = function() {
+        // p.noLoop();
     }
 
 
@@ -119,19 +163,21 @@ var guiSketch = new p5(function( sketch ) {
         tC=inC;
         tR=inR;
 
-        sketch.text("Input", tC, tR);
+        p.text("Input", tC, tR);
         tC+= fW*15;
-        selTargetIn = sketch.createSelect();
+        selTargetIn = p.createSelect();
         selTargetIn.position(tC, tR);
         fillIO(selTargetIn);
         selTargetIn.changed( function() {
-            // Bela.data.sendBuffer(2, 'float', this.elt.selectedIndex);
+            console.log(this.elt.value);
+            dataBuffer[dataIn.DI_I_TARGET_CH] = this.elt.value;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
         tC=inC;
         tR+=fH;
 
-        sketch.text("Target (v)", tC,tR);
+        p.text("Target (v)", tC,tR);
         tC+= fW*15;
 
         targetInVolt = inputNum(tC,tR,100,0.0, function() {
@@ -142,36 +188,46 @@ var guiSketch = new p5(function( sketch ) {
         tR+= fH;
         tC=inC;
 
-        sketch.text("Theory (v)", tC,tR);
+        p.text("Theory (v)", tC,tR);
         tC+= fW*15;
-        sketch.text("0.001", tC,tR);
+
+        inTheoryVolt=[tC,tR];
+        p.text("0.001", tC,tR);
         tR+= fH;
 
         tR+=2*fH;
 
-        inDone = sketch.createButton('Calibrated');
+        inDone = p.createButton('Calibrated');
         inDone.position(tC,tR);
+        inDone.mouseReleased(function() {
+            dataBuffer[dataIn.DI_I_CAL_TRIG] = 0;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+        });
         inDone.mousePressed (function() {
-            // todo 
+            dataBuffer[dataIn.DI_I_CAL_TRIG] = 1;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
  
         tR+= fH * 3;
         tC=inC;
-        sketch.text("actual (dec)", tC,tR); 
+        p.text("actual (dec)", tC,tR); 
         tC+= fW*15;
-        sketch.text("0.001", tC,tR);
+        inActFloat=[tC,tR];;
+        p.text("0.001", tC,tR);
         tR+= fH;
 
         tC=inC;
-        sketch.text("calibrated (dec)", tC,tR); 
+        p.text("calibrated (dec)", tC,tR); 
         tC+= fW*15;
-        sketch.text("0.001", tC,tR);
+        inCalFloat=[tC,tR];;
+        p.text("0.001", tC,tR);
         tR+= fH;
 
         tC=inC;
-        sketch.text("calibrated (v)", tC,tR); 
+        p.text("calibrated (v)", tC,tR); 
         tC+= fW*15;
-        sketch.text("0.001", tC,tR);
+        inCalVolt=[tC,tR];;
+        p.text("0.001", tC,tR);
         tR+= fH;
 
     }
@@ -180,87 +236,118 @@ var guiSketch = new p5(function( sketch ) {
         tC=inC;
         tR=inR;
 
-        sketch.text("Output", tC, tR);
+        var outFloat=0.5;
+
+        p.text("Output", tC, tR);
         tC+= fW*15;
-        selTargetOut = sketch.createSelect();
+        selTargetOut = p.createSelect();
         selTargetOut.position(tC, tR);
         fillIO(selTargetOut);
         selTargetOut.changed( function() {
-            // Bela.data.sendBuffer(, 'float', this.elt.selectedIndex);
+            dataBuffer[dataIn.DI_O_TARGET_CH] = this.elt.value
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
         tC=inC;
         tR+=fH;
 
-        sketch.text("Target (v)", tC,tR);
+        p.text("Target (v)", tC,tR);
         tC+= fW*15;
 
         targetOutVolt = inputNum(tC,tR,100,0.0, function() {
-            // body...
+            dataBuffer[dataIn.DI_O_TARGET_VOLT] = this.value;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
         tR+= fH;
-        sketch.text("Min", tC, tR);
+        p.text("Min", tC, tR);
         minOutVolt = inputNum(tC,tR+fH,fW*5,0.0, function() {
-            // body...
+            dataBuffer[dataIn.DI_O_MIN_VOLT] = this.value;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
-        sketch.text("Max", tC + fW*10, tR);
+        p.text("Max", tC + fW*10, tR);
         maxOutVolt = inputNum(tC + fW*10,tR+fH,fW*5,0.0, function() {
-            // body...
+            dataBuffer[dataIn.DI_O_MAX_VOLT] = this.value;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
 
         tC=inC;
         tR+=fH*3;
 
-        outDownCourse = sketch.createButton('<<');
+        outDownCourse = p.createButton('<<');
         outDownCourse.position(tC,tR);
         outDownCourse.mousePressed (function() {
-            // todo 
+            val = dataBuffer[dataIn.DI_O_T_FLOAT];
+            val -= 0.05;
+            if(val<0) val=0.0;
+            dataBuffer[dataIn.DI_O_T_FLOAT] = val;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
         tC+= 5*fW;
-        outDownFine = sketch.createButton('<');
+        outDownFine = p.createButton('<');
         outDownFine.position(tC,tR);
         outDownFine.mousePressed (function() {
-            // todo 
+            val = dataBuffer[dataIn.DI_O_T_FLOAT];
+            val -= 0.005;
+            if(val<0) val=0.0;
+            dataBuffer[dataIn.DI_O_T_FLOAT] = val;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
         tC+= 5*fW;
-        outDone = sketch.createButton('Calibrated');
+
+        outDone = p.createButton('Calibrated');
         outDone.position(tC,tR);
-        outDone.mousePressed (function() {
-            // todo 
+        outDone.mouseReleased(function() {
+            dataBuffer[dataIn.DI_O_CAL_TRIG] = 0;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
+        outDone.mousePressed (function() {
+            dataBuffer[dataIn.DI_O_CAL_TRIG] = 1;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+        });
+
         tC+= 10*fW;
-        outUpFine = sketch.createButton('>');
+        outUpFine = p.createButton('>');
         outUpFine.position(tC,tR);
         outUpFine.mousePressed (function() {
-            // todo 
+            val = dataBuffer[dataIn.DI_O_T_FLOAT];
+            val += 0.005;
+            if(val>1.0) val=1.0;
+            dataBuffer[dataIn.DI_O_T_FLOAT] = val;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
         tC+= 5*fW;
-        outUpCourse = sketch.createButton('>>');
+        outUpCourse = p.createButton('>>');
         outUpCourse.position(tC,tR);
         outUpCourse.mousePressed (function() {
-            // todo 
-        });
+            val = dataBuffer[dataIn.DI_O_T_FLOAT];
+            val += 0.01;
+            if(val>1.0) val=1.0;
+            dataBuffer[dataIn.DI_O_T_FLOAT] = val;
+            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+       });
 
 
         tR+= fH * 3;
         tC=inC;
-        sketch.text("actual (dec)", tC,tR); 
+        p.text("actual (dec)", tC,tR); 
         tC+= fW*15;
-        sketch.text("0.001", tC,tR);
+        outActFloat=[tC,tR];;
+        p.text("0.001", tC,tR);
         tR+= fH;
 
         tC=inC;
-        sketch.text("calibrated (dec)", tC,tR); 
+        p.text("calibrated (dec)", tC,tR); 
         tC+= fW*15;
-        sketch.text("0.001", tC,tR);
+        outCalFloat=[tC,tR];;
+        p.text("0.001", tC,tR);
         tR+= fH;
 
     }
 
     function inputNum(x,y,sz,init,fn) {
-        let c= sketch.createInput(init,"number");
+        let c= p.createInput(init,"number");
         c.position(x,y);
         c.size(sz);
         // c.input(fn);
@@ -269,6 +356,7 @@ var guiSketch = new p5(function( sketch ) {
     }
     
     function fillIO(sel) {
+        sel.option(0);
         sel.option(1);
         sel.option(2);
         sel.option(3);
@@ -276,30 +364,8 @@ var guiSketch = new p5(function( sketch ) {
         sel.option(5);
         sel.option(6);
         sel.option(7);
-        sel.option(8);
-        sel.value(1);
-    }
-    
-    function selectTargetIn() {
-
+        sel.value(0);
     }
 
-    // function selectTargetOut() {
-
-    // }
-
- //    function selectBoardEvent() {
- //        sketch.textAlign(sketch.LEFT, sketch.TOP);
-	// 	let item = selBoard.value();
-	// 	// sketch.rect(190,300, sketch.textWidth('AAAAAAAA') , sketch.textSize() * 1.1);
-	// 	// sketch.text(item, 200,300);
-	// 	let idx = 0;
-	// 	if (item=='Salt') idx = 0;
-	// 	else if (item=='Pepper') idx = 1;
-	// 	else if (item=='Bela') idx = 2;
-	// 	else idx=4;
-		
- //    	Bela.data.sendBuffer(1, 'float', idx);	
-	// }
 }, 'gui');
 	

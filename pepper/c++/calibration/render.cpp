@@ -68,18 +68,27 @@ bool setup(BelaContext *context, void *userData)
 	for(unsigned i=0;i<DO_MAX;i++) {
 		dataOutBuf[i]=0.0f;
 	}
+	for(unsigned i=0;i<DI_MAX;i++) {
+		dataInBuf[i]=0.0f;
+	}
 	gui.setBuffer('f', DO_MAX); 
+
+	dataInBuf[DI_BOARD]=BT_MAX;
 
 	return true;
 }
 
+void inCalibrated() {
+	dataOutBuf[DO_I_MAX_VOLT]+=1.0;
+}
 
-
+void outCalibrated() {
+	dataOutBuf[DO_O_MAX_VOLT]+=1.0;
+}
 
 void dataChanged(unsigned i, float oldV, float newV) {
 	switch(i) {
 		case DI_BOARD : {
-			rt_printf("board changed : %f\n", newV);
 			switch ((unsigned) newV) {
 				case BT_SALT : {
 					dataOutBuf[DO_I_MIN_VOLT]=-5.0;
@@ -90,7 +99,7 @@ void dataChanged(unsigned i, float oldV, float newV) {
 				} 
 				case BT_PEPPER : {
 					dataOutBuf[DO_I_MIN_VOLT]=0;
-					dataOutBuf[DO_I_MAX_VOLT]=1.0;
+					dataOutBuf[DO_I_MAX_VOLT]=10.0;
 					dataOutBuf[DO_O_MIN_VOLT]=0;
 					dataOutBuf[DO_O_MAX_VOLT]=5.0;
 					break;
@@ -111,6 +120,23 @@ void dataChanged(unsigned i, float oldV, float newV) {
 				} 
 			} // board type
 		} // case DI BOARD
+		case DI_I_CAL_TRIG : {
+			if(newV>0.5) inCalibrated();
+			break;
+		}
+		case DI_O_CAL_TRIG : {
+			if(newV>0.5) outCalibrated();
+			break;
+		}
+		case DI_I_TARGET_VOLT : {
+			break;
+		}
+		case DI_O_TARGET_VOLT : {
+			break;
+		}
+		case DI_O_T_FLOAT : {
+			break;
+		}
 	}
 }
 
@@ -154,7 +180,7 @@ void render(BelaContext *context, void *userData)
 	
 	if(unsigned(dataInBuf[DI_O_TARGET_CH]) < context->analogOutChannels) {
 		for(unsigned int n = 0; n < context->analogFrames; n++) {
-			analogWriteOnce(context, n, unsigned(dataInBuf[DI_O_TARGET_CH]) , dataOutBuf[DO_I_CAL_FLOAT]);
+			analogWriteOnce(context, n, unsigned(dataInBuf[DI_O_TARGET_CH]) , dataOutBuf[DI_O_T_FLOAT]);
 		}
 	}
 	
