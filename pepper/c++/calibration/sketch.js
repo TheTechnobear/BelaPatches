@@ -18,7 +18,7 @@ var guiSketch = new p5(function( p ) {
     const dataOut = {
         DO_I_MIN_VOLT : 0 ,
         DO_I_MAX_VOLT : 1 ,
-        DO_I_THEORY_VOLT : 2,
+        DO_I_ACT_VOLT : 2,
         DO_I_ACT_FLOAT : 3 ,
         DO_I_CAL_FLOAT : 4,
         DO_I_CAL_VOLT : 5,
@@ -50,7 +50,7 @@ var guiSketch = new p5(function( p ) {
     });
 
     var voltTextPos=[0,0];
-    var inTheoryVolt=[0,0];
+    var inActVolt=[0,0];
     var inActFloat=[0,0];
     var inCalFloat=[0,0];
     var inCalVolt=[0,0];
@@ -106,6 +106,7 @@ var guiSketch = new p5(function( p ) {
         drawOutput(contentC + fW*40,contentR);
 
         Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+        p.noLoop();
     }
 
     function statusLine(v) {
@@ -121,6 +122,21 @@ var guiSketch = new p5(function( p ) {
         p.text(str,x,y);
     }
 
+    function fillVolt(ctrl, minv, maxv, step) {
+      while(ctrl.elt.options.length>0) {
+        ctrl.elt.remove(0);
+      }
+      s = (p.abs(minv) + maxv ) / step;
+      for(v = minv; v <=maxv; v = v+s ) {
+        ctrl.option(v);
+      }
+    }
+
+    var minIV=-10;
+    var maxIV=-10;
+    var minOV=-10;
+    var maxOV=-10;
+
     function redraw() {
         var buffer = Bela.data.buffers[0];
         if(buffer.length==dataOut.DO_MAX) {
@@ -128,25 +144,40 @@ var guiSketch = new p5(function( p ) {
             p.fill(160);
             tC=voltTextPos[0];tR=voltTextPos[1];
             p.rect(tC,tR,fW*20,fH);
+
+            var chg=false;
+            chg = chg || minIV!=buffer[dataOut.DO_I_MIN_VOLT];
             minIV=buffer[dataOut.DO_I_MIN_VOLT];
+            chg = chg || maxIV!=buffer[dataOut.DO_I_MAX_VOLT];
             maxIV=buffer[dataOut.DO_I_MAX_VOLT];
+            if(chg) {
+                fillVolt(targetInVolt,minIV,maxIV,10.0);
+            }
+
+            chg=false;
+            chg = chg || minOV!=buffer[dataOut.DO_O_MIN_VOLT];
             minOV=buffer[dataOut.DO_O_MIN_VOLT];
+            chg = chg || maxOV!=buffer[dataOut.DO_O_MAX_VOLT];
             maxOV=buffer[dataOut.DO_O_MAX_VOLT];
+            if(chg) {
+                fillVolt(targetOutVolt,minOV,maxOV,10.0);
+            }
             str = "In: "  + minIV.toString() + "/" + maxIV.toString()+ "";
             str += "    ";
             str +="Out: " + minOV.toString() + "/" + maxOV.toString()+ "";
             p.fill(0);
             p.text(str,tC,tR);
 
-            tC=inTheoryVolt[0];tR=inTheoryVolt[1];
-            drawNum(tC,tR,buffer[dataOut.DO_I_THEORY_VOLT]);
-
+            tC=inActVolt[0];tR=inActVolt[1];
+            drawNum(tC,tR,buffer[dataOut.DO_I_ACT_VOLT]);
             tC=inActFloat[0];tR=inActFloat[1];
             drawNum(tC,tR,buffer[dataOut.DO_I_ACT_FLOAT]);
-            tC=inCalFloat[0];tR=inCalFloat[1];
-            drawNum(tC,tR,buffer[dataOut.DO_I_CAL_FLOAT]);
+
             tC=inCalVolt[0];tR=inCalVolt[1];
             drawNum(tC,tR,buffer[dataOut.DO_I_CAL_VOLT]);
+            tC=inCalFloat[0];tR=inCalFloat[1];
+            drawNum(tC,tR,buffer[dataOut.DO_I_CAL_FLOAT]);
+
             tC=outActFloat[0];tR=outActFloat[1];
             drawNum(tC,tR,buffer[dataOut.DO_O_ACT_FLOAT]);
             tC=outCalFloat[0];tR=outCalFloat[1];
@@ -155,7 +186,7 @@ var guiSketch = new p5(function( p ) {
     }
 
     p.draw = function() {
-        // p.noLoop();
+        p.noLoop();
     }
 
 
@@ -169,7 +200,6 @@ var guiSketch = new p5(function( p ) {
         selTargetIn.position(tC, tR);
         fillIO(selTargetIn);
         selTargetIn.changed( function() {
-            console.log(this.elt.value);
             dataBuffer[dataIn.DI_I_TARGET_CH] = this.elt.value;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
@@ -180,22 +210,15 @@ var guiSketch = new p5(function( p ) {
         p.text("Target (v)", tC,tR);
         tC+= fW*15;
 
-        targetInVolt = inputNum(tC,tR,100,0.0, function() {
-            dataBuffer[dataIn.DI_I_TARGET_VOLT] = this.value;
+        targetInVolt = p.createSelect();
+        targetInVolt.position(tC, tR);
+        targetInVolt.changed( function() {
+            dataBuffer[dataIn.DI_I_TARGET_VOLT] = this.elt.value;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
-        tR+= fH;
         tC=inC;
-
-        p.text("Theory (v)", tC,tR);
-        tC+= fW*15;
-
-        inTheoryVolt=[tC,tR];
-        p.text("0.001", tC,tR);
-        tR+= fH;
-
-        tR+=2*fH;
+        tR+=4*fH;
 
         inDone = p.createButton('Calibrated');
         inDone.position(tC,tR);
@@ -209,17 +232,18 @@ var guiSketch = new p5(function( p ) {
         });
  
         tR+= fH * 3;
+
         tC=inC;
-        p.text("actual (dec)", tC,tR); 
+        p.text("actual (v)", tC,tR);
         tC+= fW*15;
-        inActFloat=[tC,tR];;
+        inActVolt=[tC,tR];
         p.text("0.001", tC,tR);
         tR+= fH;
 
         tC=inC;
-        p.text("calibrated (dec)", tC,tR); 
+        p.text("actual (dec)", tC,tR); 
         tC+= fW*15;
-        inCalFloat=[tC,tR];;
+        inActFloat=[tC,tR];;
         p.text("0.001", tC,tR);
         tR+= fH;
 
@@ -230,6 +254,12 @@ var guiSketch = new p5(function( p ) {
         p.text("0.001", tC,tR);
         tR+= fH;
 
+        tC=inC;
+        p.text("calibrated (dec)", tC,tR); 
+        tC+= fW*15;
+        inCalFloat=[tC,tR];;
+        p.text("0.001", tC,tR);
+        tR+= fH;
     }
 
     function drawOutput(inC,inR) {
@@ -254,8 +284,14 @@ var guiSketch = new p5(function( p ) {
         p.text("Target (v)", tC,tR);
         tC+= fW*15;
 
-        targetOutVolt = inputNum(tC,tR,100,0.0, function() {
-            dataBuffer[dataIn.DI_O_TARGET_VOLT] = this.value;
+        targetOutVolt = p.createSelect();
+        targetOutVolt.position(tC, tR);
+        targetOutVolt.changed( function() {
+            dataBuffer[dataIn.DI_O_TARGET_VOLT] = this.elt.value;
+ 
+            // set the target value too
+            var val = this.elt.selectedIndex / 10.0;
+            dataBuffer[dataIn.DI_O_T_FLOAT] = val;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
