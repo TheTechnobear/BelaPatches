@@ -50,6 +50,10 @@ enum boardType {
 float dataOutBuf[DO_MAX];
 float dataInBuf[DI_MAX];
 
+static constexpr unsigned MAX_STATUS=120;
+static char statusBuf[MAX_STATUS];
+
+
 static constexpr unsigned MAX_RES=10+1;
 static constexpr unsigned MAX_CH=8;
 float inCalValues[MAX_CH][MAX_RES];
@@ -67,6 +71,7 @@ bool setup(BelaContext *context, void *userData) {
 		dataInBuf[i]=0.0f;
 	}
 	gui.setBuffer('f', DO_MAX); 
+	gui.setBuffer('c', MAX_STATUS);
 
 	dataInBuf[DI_BOARD]=BT_MAX;
 
@@ -80,9 +85,13 @@ bool setup(BelaContext *context, void *userData) {
 	return true;
 }
 
+void sendStatus() {
+	gui.sendBuffer(1,statusBuf);
+}
+
 unsigned findCalStep(float v, float min,float max) {
-	float rangeV = min + max;
-	float absV = (fabs(min) + v) *  (rangeV / float(10.0f));
+	float rangeV = fabs(min) + max;
+	float absV = (fabs(min) + v) *  (float(10.0f)/ rangeV );
 	unsigned step = absV + 0.2;
 	return step;
 }
@@ -101,7 +110,34 @@ void inCalibrated() {
 }
 
 void outCalibrated() {
-	;
+	unsigned tCh= dataInBuf[DI_O_TARGET_CH];
+	float tV=dataInBuf[DI_O_TARGET_VOLT];
+	float minV=dataOutBuf[DO_O_MIN_VOLT];
+	float maxV=dataOutBuf[DO_O_MAX_VOLT];
+	unsigned step = findCalStep(tV,minV,maxV);
+	step = step <MAX_RES ? step : MAX_RES-1;
+	tCh = tCh <MAX_CH ? tCh : MAX_CH-1;
+	outCalValues[tCh][step] = dataInBuf[DI_O_T_FLOAT];
+	// rt_printf("out calibrated %d %f\n", step, outCalValues[tCh][step]);
+	sprintf(statusBuf,"out calibrated s %d tV %f mV %f xV %f outV %f", step, tV, minV, maxV,outCalValues[tCh][step]);
+	sendStatus();
+}
+
+
+void calTargetVolt() {
+	unsigned tCh= dataInBuf[DI_O_TARGET_CH];
+	float tV=dataInBuf[DI_O_TARGET_VOLT];
+	float minV=dataOutBuf[DO_O_MIN_VOLT];
+	float maxV=dataOutBuf[DO_O_MAX_VOLT];
+	unsigned step = findCalStep(tV,minV,maxV);
+	float rangeV = fabs(minV) + maxV;
+	float absV = (fabs(minV) + tV);
+
+	dataOutBuf[DO_O_ACT_FLOAT] = absV / rangeV;
+	step = step <MAX_RES ? step : MAX_RES-1;
+	tCh = tCh <MAX_CH ? tCh : MAX_CH-1;
+	dataOutBuf[DO_O_CAL_FLOAT] = outCalValues[tCh][step];
+	dataInBuf[DI_O_T_FLOAT]= outCalValues[tCh][step];
 }
 
 void dataChanged(unsigned i, float oldV, float newV) {
@@ -113,6 +149,8 @@ void dataChanged(unsigned i, float oldV, float newV) {
 					dataOutBuf[DO_I_MAX_VOLT]=5.0;
 					dataOutBuf[DO_O_MIN_VOLT]=-5.0;
 					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
+
 					break;
 				} 
 				case BT_PEPPER : {
@@ -120,6 +158,7 @@ void dataChanged(unsigned i, float oldV, float newV) {
 					dataOutBuf[DO_I_MAX_VOLT]=10.0;
 					dataOutBuf[DO_O_MIN_VOLT]=0;
 					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
 					break;
 				} 
 				case BT_BELA: {
@@ -127,6 +166,7 @@ void dataChanged(unsigned i, float oldV, float newV) {
 					dataOutBuf[DO_I_MAX_VOLT]=5.0;
 					dataOutBuf[DO_O_MIN_VOLT]=0;
 					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
 					break;
 				} 
 				default: {
@@ -134,9 +174,11 @@ void dataChanged(unsigned i, float oldV, float newV) {
 					dataOutBuf[DO_I_MAX_VOLT]=5.0;
 					dataOutBuf[DO_O_MIN_VOLT]=0;
 					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
 					break;
 				} 
 			} // board type
+			break;
 		} // case DI BOARD
 		case DI_I_CAL_TRIG : {
 			if(newV>0.5) inCalibrated();
@@ -150,21 +192,19 @@ void dataChanged(unsigned i, float oldV, float newV) {
 			break;
 		}
 		case DI_O_TARGET_VOLT : {
-			// not needed?
-			// float v = dataInBuf[DI_O_TARGET_VOLT];
-			// float minV = dataOutBuf[DO_O_MIN_VOLT];
-			// float maxV = dataOutBuf[DO_O_MAX_VOLT];
-			// float range = fabs(minV) + maxV;
-			// float absV = (fabs(min) + v) *  (rangeV / float(10.0f));
-			// dataOutBuf[DO_I_CAL_FLOAT] = ( absV / float(10.0));
+			calTargetVolt();
+			sprintf(statusBuf,"new TargetVoltage %f %f %f %f ", newV, dataOutBuf[DO_O_ACT_FLOAT], dataInBuf[DI_O_T_FLOAT],dataOutBuf[DO_O_CAL_FLOAT]);
+			sendStatus();
 			break;
 		}
 		case DI_O_T_FLOAT : {
-			dataOutBuf[DO_I_ACT_FLOAT] = dataInBuf[DI_O_T_FLOAT];
+			dataOutBuf[DO_O_CAL_FLOAT] = dataInBuf[DI_O_T_FLOAT];
 			break;
 		}
 	}
 }
+
+
 
 void render(BelaContext *context, void *userData) {
 	if(!gui.isConnected()) return;
@@ -182,17 +222,18 @@ void render(BelaContext *context, void *userData) {
 			// rt_printf("]\n",sz);
 
 			for(unsigned i=0;i<DI_MAX && i<sz;i++) {
-				if(data[i] != dataInBuf[i]) {
-					dataChanged(i,dataInBuf[i],data[i]);
-				}
+				float old = dataInBuf[i];
+
 				dataInBuf[i]=data[i];
+				if(old != dataInBuf[i]) {
+					dataChanged(i,old, dataInBuf[i]);
+				}
 			}
 		}
 
 		if(unsigned(dataInBuf[DI_I_TARGET_CH]) < context->analogInChannels) {
 			unsigned ch = dataInBuf[DI_I_TARGET_CH];
 			float v = analogRead(context, 0,ch);
-
 
 			// act = current reading.
 			// cal = calibrated reading
@@ -213,9 +254,6 @@ void render(BelaContext *context, void *userData) {
 			//convert to voltage
 			dataOutBuf[DO_I_CAL_VOLT]=(dataOutBuf[DO_I_CAL_FLOAT] * vMult) + minV;
 		}
-
-		dataOutBuf[DO_O_ACT_FLOAT]=dataInBuf[DI_O_T_FLOAT];
-		dataOutBuf[DO_O_CAL_FLOAT]=dataInBuf[DI_O_T_FLOAT];
 
 		gui.sendBuffer(0,dataOutBuf);
 	}

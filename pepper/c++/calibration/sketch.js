@@ -47,6 +47,9 @@ var guiSketch = new p5(function( p ) {
         if(event.detail ==0 && typeof Bela.data.buffers[0] != 'undefined') {
             redraw();
         }
+        if(event.detail ==1 && typeof Bela.data.buffers[1] != 'undefined') {
+            redrawStatus();
+        }
     });
 
     var voltTextPos=[0,0];
@@ -108,10 +111,24 @@ var guiSketch = new p5(function( p ) {
         Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         p.noLoop();
     }
+    
+    function redrawStatus() {
+        var buffer = Bela.data.buffers[1];
+        statusLine(buffer);
+    }
 
     function statusLine(v) {
-        p.rect(0,600,p.textWidth('AAAAAAAAAAAAAAAAAAA') , p.textSize() * 1.1);
-        p.text(v, 0,600);
+        var str = v.join("");
+        var x=0;
+        var y=600;
+        var ch=120
+
+        p.stroke(160);
+        p.fill(160);
+        p.rect(x-fW,y,fW*ch,fW*ch,fH);
+        p.fill(0);
+        p.text(str,x,y);
+
     }
 
     function drawNum(x,y,str) {
@@ -123,6 +140,7 @@ var guiSketch = new p5(function( p ) {
     }
 
     function fillVolt(ctrl, minv, maxv, step) {
+      var i=ctrl.elt.selectedIndex;
       while(ctrl.elt.options.length>0) {
         ctrl.elt.remove(0);
       }
@@ -130,6 +148,7 @@ var guiSketch = new p5(function( p ) {
       for(v = minv; v <=maxv; v = v+s ) {
         ctrl.option(v);
       }
+      ctrl.elt.selectedIndex=i;
     }
 
     var minIV=-10;
@@ -152,6 +171,8 @@ var guiSketch = new p5(function( p ) {
             maxIV=buffer[dataOut.DO_I_MAX_VOLT];
             if(chg) {
                 fillVolt(targetInVolt,minIV,maxIV,10.0);
+                dataBuffer[dataIn.DI_I_TARGET_VOLT] = targetInVolt.elt.value;
+                Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
             }
 
             chg=false;
@@ -161,6 +182,8 @@ var guiSketch = new p5(function( p ) {
             maxOV=buffer[dataOut.DO_O_MAX_VOLT];
             if(chg) {
                 fillVolt(targetOutVolt,minOV,maxOV,10.0);
+                dataBuffer[dataIn.DI_O_TARGET_VOLT] = targetOutVolt.elt.value;
+                Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
             }
             str = "In: "  + minIV.toString() + "/" + maxIV.toString()+ "";
             str += "    ";
@@ -182,6 +205,8 @@ var guiSketch = new p5(function( p ) {
             drawNum(tC,tR,buffer[dataOut.DO_O_ACT_FLOAT]);
             tC=outCalFloat[0];tR=outCalFloat[1];
             drawNum(tC,tR,buffer[dataOut.DO_O_CAL_FLOAT]);
+
+            dataBuffer[dataIn.DI_O_T_FLOAT] = buffer[dataOut.DO_O_CAL_FLOAT];
         }
     }
 
@@ -222,13 +247,13 @@ var guiSketch = new p5(function( p ) {
 
         inDone = p.createButton('Calibrated');
         inDone.position(tC,tR);
-        inDone.mouseReleased(function() {
-            dataBuffer[dataIn.DI_I_CAL_TRIG] = 0;
-            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
-        });
         inDone.mousePressed (function() {
             dataBuffer[dataIn.DI_I_CAL_TRIG] = 1;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+            setTimeout(function() {
+                dataBuffer[dataIn.DI_I_CAL_TRIG] = 0;
+                Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+            },500);
         });
  
         tR+= fH * 3;
@@ -287,11 +312,10 @@ var guiSketch = new p5(function( p ) {
         targetOutVolt = p.createSelect();
         targetOutVolt.position(tC, tR);
         targetOutVolt.changed( function() {
-            dataBuffer[dataIn.DI_O_TARGET_VOLT] = this.elt.value;
- 
             // set the target value too
-            var val = this.elt.selectedIndex / 10.0;
-            dataBuffer[dataIn.DI_O_T_FLOAT] = val;
+            // var val = this.elt.selectedIndex / 10.0;
+            // dataBuffer[dataIn.DI_O_T_FLOAT] = val;
+            dataBuffer[dataIn.DI_O_TARGET_VOLT] = this.elt.value;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
         });
 
@@ -334,13 +358,13 @@ var guiSketch = new p5(function( p ) {
 
         outDone = p.createButton('Calibrated');
         outDone.position(tC,tR);
-        outDone.mouseReleased(function() {
-            dataBuffer[dataIn.DI_O_CAL_TRIG] = 0;
-            Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
-        });
         outDone.mousePressed (function() {
             dataBuffer[dataIn.DI_O_CAL_TRIG] = 1;
             Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+            setTimeout(function() {
+                dataBuffer[dataIn.DI_O_CAL_TRIG] = 0;
+                Bela.data.sendBuffer(0,'float',Array.from(dataBuffer));
+            },500);
         });
 
         tC+= 10*fW;
@@ -381,6 +405,7 @@ var guiSketch = new p5(function( p ) {
         tR+= fH;
 
     }
+
 
     function inputNum(x,y,sz,init,fn) {
         let c= p.createInput(init,"number");
