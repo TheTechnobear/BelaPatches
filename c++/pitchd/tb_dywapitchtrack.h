@@ -81,12 +81,12 @@ namespace technobear {
 // structure to hold tracking data
 typedef struct _dywapitchtracker {
     int sampleCount_;
-    double *sam_ ;
+    float *sam_ ;
     int *distances_;
     int *mins_;
     int *maxs_;
 
-	double	_prevPitch;
+	float	_prevPitch;
 	int		_pitchConfidence;
 } dywapitchtracker;
 
@@ -103,7 +103,7 @@ void dywapitch_inittracking(dywapitchtracker *pitchtracker);
 // startsample : the index of teh first sample to use in teh sample buffer
 // samplecount : the number of samples to use to compte the pitch
 // return 0.0 if no pitch was found (sound too low, noise, etc..)
-double dywapitch_computepitch(dywapitchtracker *pitchtracker, double * samples, int startsample, int samplecount);
+float dywapitch_computepitch(dywapitchtracker *pitchtracker, float * samples, int startsample, int samplecount);
 
 void dywapitch_deinittracking(dywapitchtracker *pitchtracker);
 

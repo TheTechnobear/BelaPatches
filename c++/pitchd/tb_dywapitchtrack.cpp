@@ -29,13 +29,15 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h> // for memset
-
+#include <limits>
 
 namespace technobear {
 
 //**********************
 //       Utils
 //**********************
+
+static constexpr float FLT_MAX=std::numeric_limits<float>::max();
 
 #ifndef max
 #define max(x, y) ((x) > (y)) ? (x) : (y)
@@ -44,9 +46,6 @@ namespace technobear {
 #define min(x, y) ((x) < (y)) ? (x) : (y)
 #endif
 
-#ifndef DBL_MAX
-#define DBL_MAX 1.79769e+308
-#endif
 
 // returns 1 if power of 2
 int _power2p(int value) {
@@ -111,11 +110,11 @@ typedef struct _minmax {
 
 
 
-double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * samples, int startsample, int samplecount) {
-	double pitchF = 0.0;
+float _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, float * samples, int startsample, int samplecount) {
+	float pitchF = 0.0f;
 	
 	int i, j;
-	double si, si1;
+	float si, si1;
 	
 	// must be a power of 2
 	samplecount = _floor_power2(samplecount);
@@ -125,7 +124,7 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 		free(pitchtracker->distances_);
 		free(pitchtracker->mins_);
 		free(pitchtracker->maxs_);
-		pitchtracker->sam_ = (double *)malloc(sizeof(double)*samplecount);
+		pitchtracker->sam_ = (float *)malloc(sizeof(float)*samplecount);
 		pitchtracker->distances_ = (int *)malloc(sizeof(int)*samplecount);
 		pitchtracker->mins_ = (int *)malloc(sizeof(int)*samplecount);
 		pitchtracker->maxs_ = (int *)malloc(sizeof(int)*samplecount);
@@ -137,24 +136,24 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 	auto mins = pitchtracker->mins_;
 	auto maxs = pitchtracker->maxs_;
 
-	memcpy(sam, samples + startsample, sizeof(double)*samplecount);
+	memcpy(sam, samples + startsample, sizeof(float)*samplecount);
 	int curSamNb = samplecount;
 	
 	int nbMins, nbMaxs;
 	
 	// algorithm parameters
 	int maxFLWTlevels = 6;
-	double maxF = 3000.;
+	float maxF = 3000.f;
 	int differenceLevelsN = 3;
-	double maximaThresholdRatio = 0.75;
+	float maximaThresholdRatio = 0.75f;
 	
-	double ampltitudeThreshold;  
-	double theDC = 0.0;
+	float ampltitudeThreshold;  
+	float theDC = 0.0f;
 	
 	{ // compute ampltitudeThreshold and theDC
 		//first compute the DC and maxAMplitude
-		double maxValue = -DBL_MAX;
-		double minValue = DBL_MAX;
+		float maxValue = -FLT_MAX;
+		float minValue = FLT_MAX;
 		for (i = 0; i < samplecount;i++) {
 			si = sam[i];
 			theDC = theDC + si;
@@ -164,7 +163,7 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 		theDC = theDC/samplecount;
 		maxValue = maxValue - theDC;
 		minValue = minValue - theDC;
-		double amplitudeMax = (maxValue > -minValue ? maxValue : -minValue);
+		float amplitudeMax = (maxValue > -minValue ? maxValue : -minValue);
 		
 		ampltitudeThreshold = amplitudeMax*maximaThresholdRatio;
 		//asLog("dywapitch theDC=%f ampltitudeThreshold=%f\n", theDC, ampltitudeThreshold);
@@ -173,13 +172,13 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 	
 	// levels, start without downsampling..
 	int curLevel = 0;
-	double curModeDistance = -1.;
+	float curModeDistance = -1.f;
 	int delta;
 	
 	while(1) {
 		
 		// delta
-		delta = 44100./(_2power(curLevel)*maxF);
+		delta = 44100.f/(_2power(curLevel)*maxF);
 		//("dywapitch doing level=%ld delta=%ld\n", curLevel, delta);
 		
 		if (curSamNb < 2) goto cleanup;
@@ -187,7 +186,7 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 		// compute the first maximums and minumums after zero-crossing
 		// store if greater than the min threshold
 		// and if at a greater distance than delta
-		double dv, previousDV = -1000;
+		float dv, previousDV = -1000.0f;
 		nbMins = nbMaxs = 0;   
 		int lastMinIndex = -1000000;
 		int lastmaxIndex = -1000000;
@@ -197,15 +196,15 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 			si = sam[i] - theDC;
 			si1 = sam[i-1] - theDC;
 			
-			if (si1 <= 0 && si > 0) {findMax = 1; findMin = 0; }
-			if (si1 >= 0 && si < 0) {findMin = 1; findMax = 0; }
+			if (si1 <= 0.f && si > 0.f) {findMax = 1; findMin = 0; }
+			if (si1 >= 0.f && si < 0.f) {findMin = 1; findMax = 0; }
 			
 			// min or max ?
 			dv = si - si1;
 			
-			if (previousDV > -1000) {
+			if (previousDV > -1000.f) {
 				
-				if (findMin && previousDV < 0 && dv >= 0) { 
+				if (findMin && previousDV < 0 && dv >= 0.f) { 
 					// minimum
 					if (fabs(si1) >= ampltitudeThreshold) {
 						if (i - 1 > lastMinIndex + delta) {
@@ -224,7 +223,7 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 					}
 				}
 				
-				if (findMax && previousDV > 0 && dv <= 0) {
+				if (findMax && previousDV > 0.f && dv <= 0.f) {
 					// maximum
 					if (fabs(si1) >= ampltitudeThreshold) {
 						if (i -1 > lastmaxIndex + delta) {
@@ -299,8 +298,8 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 		//asLog("dywapitch bestDistance=%ld\n", bestDistance);
 		
 		// averaging
-		double distAvg = 0.0;
-		double nbDists = 0;
+		float distAvg = 0.0f;
+		float nbDists = 0.f;
 		for (j = -delta ; j <= delta ; j++) {
 			if (bestDistance+j >=0 && bestDistance+j < samplecount) {
 				int nbDist = distances[bestDistance+j];
@@ -315,13 +314,13 @@ double _dywapitch_computeWaveletPitch(dywapitchtracker *pitchtracker, double * s
 		//asLog("dywapitch distAvg=%f\n", distAvg);
 		
 		// continue the levels ?
-		if (curModeDistance > -1.) {
-			double similarity = fabs(distAvg*2 - curModeDistance);
-			if (similarity <= 2*delta) {
+		if (curModeDistance > -1.f) {
+			float similarity = fabs(distAvg*2.f - curModeDistance);
+			if (similarity <= 2.f*delta) {
 				//if DEBUGG then put "similarity="&similarity&&"delta="&delta&&"ok"
  				//asLog("dywapitch similarity=%f OK !\n", similarity);
 				// two consecutive similar mode distances : ok !
-				pitchF = 44100./(_2power(curLevel-1)*curModeDistance);
+				pitchF = 44100.f/(_2power(curLevel-1)*curModeDistance);
 				goto cleanup;
 			}
 			//if DEBUGG then put "similarity="&similarity&&"delta="&delta&&"not"
@@ -368,20 +367,20 @@ It states:
  of a voiced segment. Smooth the plot. 
 ***/
 
-double _dywapitch_dynamicprocess(dywapitchtracker *pitchtracker, double pitch) {
+float _dywapitch_dynamicprocess(dywapitchtracker *pitchtracker, float pitch) {
 	
 	// equivalence
-	if (pitch == 0.0) pitch = -1.0;
+	if (pitch == 0.0f) pitch = -1.0f;
 	
 	//
-	double estimatedPitch = -1;
-	double acceptedError = 0.2f;
+	float estimatedPitch = -1.f;
+	float acceptedError = 0.2f;
 	int maxConfidence = 5;
 	
-	if (pitch != -1) {
+	if (pitch != -1.f) {
 		// I have a pitch here
 		
-		if (pitchtracker->_prevPitch == -1) {
+		if (pitchtracker->_prevPitch == -1.0f) {
 			// no previous
 			estimatedPitch = pitch;
 			pitchtracker->_prevPitch = pitch;
@@ -393,14 +392,14 @@ double _dywapitch_dynamicprocess(dywapitchtracker *pitchtracker, double pitch) {
 			estimatedPitch = pitch;
 			pitchtracker->_pitchConfidence = min(maxConfidence, pitchtracker->_pitchConfidence + 1); // maximum 3
 			
-		} else if ((pitchtracker->_pitchConfidence >= maxConfidence-2) && abs(pitchtracker->_prevPitch - 2.*pitch)/(2.*pitch) < acceptedError) {
+		} else if ((pitchtracker->_pitchConfidence >= maxConfidence-2) && abs(pitchtracker->_prevPitch - 2.f*pitch)/(2.f*pitch) < acceptedError) {
 			// close to half the last pitch, which is trusted
-			estimatedPitch = 2.*pitch;
+			estimatedPitch = 2.f*pitch;
 			pitchtracker->_prevPitch = estimatedPitch;
 			
-		} else if ((pitchtracker->_pitchConfidence >= maxConfidence-2) && abs(pitchtracker->_prevPitch - 0.5*pitch)/(0.5*pitch) < acceptedError) {
+		} else if ((pitchtracker->_pitchConfidence >= maxConfidence-2) && abs(pitchtracker->_prevPitch - 0.5f*pitch)/(0.5f*pitch) < acceptedError) {
 			// close to twice the last pitch, which is trusted
-			estimatedPitch = 0.5*pitch;
+			estimatedPitch = 0.5f*pitch;
 			pitchtracker->_prevPitch = estimatedPitch;
 			
 		} else {
@@ -419,15 +418,15 @@ double _dywapitch_dynamicprocess(dywapitchtracker *pitchtracker, double pitch) {
 		
 	} else {
 		// no pitch now
-		if (pitchtracker->_prevPitch != -1) {
+		if (pitchtracker->_prevPitch != -1.f) {
 			// was pitch before
 			if (pitchtracker->_pitchConfidence >= 1) {
 				// continue previous
 				estimatedPitch = pitchtracker->_prevPitch;
 				pitchtracker->_pitchConfidence = max(0, pitchtracker->_pitchConfidence - 1);
 			} else {
-				pitchtracker->_prevPitch = -1;
-				estimatedPitch = -1.;
+				pitchtracker->_prevPitch = -1.f;
+				estimatedPitch = -1.f;
 				pitchtracker->_pitchConfidence = 0;
 			}
 		}
@@ -438,11 +437,11 @@ double _dywapitch_dynamicprocess(dywapitchtracker *pitchtracker, double pitch) {
 		// ok
 		pitch = estimatedPitch;
 	} else {
-		pitch = -1;
+		pitch = -1.f;
 	}
 	
 	// equivalence
-	if (pitch == -1) pitch = 0.0;
+	if (pitch == -1.f) pitch = 0.0f;
 	
 	return pitch;
 }
@@ -453,7 +452,7 @@ double _dywapitch_dynamicprocess(dywapitchtracker *pitchtracker, double pitch) {
 // ************************************
 
 void dywapitch_inittracking(dywapitchtracker *pitchtracker) {
-	pitchtracker->_prevPitch = -1.;
+	pitchtracker->_prevPitch = -1.f;
 	pitchtracker->_pitchConfidence = -1;
 	pitchtracker->sampleCount_  = 0;
 	pitchtracker->sam_=nullptr;
@@ -462,8 +461,8 @@ void dywapitch_inittracking(dywapitchtracker *pitchtracker) {
 	pitchtracker->maxs_=nullptr;
 }
 
-double dywapitch_computepitch(dywapitchtracker *pitchtracker, double * samples, int startsample, int samplecount) {
-	double raw_pitch = _dywapitch_computeWaveletPitch(pitchtracker, samples, startsample, samplecount);
+float dywapitch_computepitch(dywapitchtracker *pitchtracker, float * samples, int startsample, int samplecount) {
+	float raw_pitch = _dywapitch_computeWaveletPitch(pitchtracker, samples, startsample, samplecount);
 	return _dywapitch_dynamicprocess(pitchtracker, raw_pitch);
 }
 

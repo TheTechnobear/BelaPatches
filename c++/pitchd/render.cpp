@@ -18,18 +18,23 @@ static int pt_smpWritePos = 0;
 
 #define TB 1
 #ifdef TB
+	// #pragma message("using tb_dywapitchtrack")
+	// technobear version : use floats, only allocate memory once
 	#include "tb_dywapitchtrack.h"
 	#define PT_TYPE technobear::dywapitchtracker
 	#define PT_INIT technobear::dywapitch_inittracking
 	#define PT_COMPUTE technobear::dywapitch_computepitch
+	#define PT_DEINIT(x) technobear::dywapitch_deinittracking(x)
 	PT_TYPE pt_tracker_;
-	double pt_smpBuf_[PT_MAX_BUF_SZ];
+	float pt_smpBuf_[PT_MAX_BUF_SZ];
 	float  pt_pitch_ = 0.0f;
 #else 
+	// #pragma message("using dywapitchtrack")
 	#include "dywapitchtrack.h"
 	#define PT_TYPE dywapitchtracker
 	#define PT_INIT dywapitch_inittracking
 	#define PT_COMPUTE dywapitch_computepitch
+	#define PT_DEINIT(x) 
 	PT_TYPE pt_tracker_;
 	double pt_smpBuf_[PT_MAX_BUF_SZ];
 	double pt_pitch_ = 0.0f;
@@ -77,6 +82,10 @@ bool setup(BelaContext *context, void *userData)
 	return true;
 }
 
+void cleanup(BelaContext *context, void *userData)
+{
+	PT_DEINIT(&pt_tracker_);
+}
 
 void render(BelaContext *context, void *userData)
 {
@@ -91,7 +100,6 @@ void render(BelaContext *context, void *userData)
 	if (pt_smpCount < PT_MAX_BUF_SZ) {
 		pt_smpCount += context->audioFrames;
 	}
-
 
 	// test only
 	float t_frequency = 440.0f;
@@ -118,6 +126,4 @@ void render(BelaContext *context, void *userData)
 
 
 
-void cleanup(BelaContext *context, void *userData)
-{
-}
+
