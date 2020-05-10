@@ -8,7 +8,8 @@
 // #define DYWAPITCHTRACKER 1
 #define Q_LIB_PITCHTRACKER 1
 
-
+// note Q_LIB_PITCHTRACKER needs, CPPFLAGS=-std=c++17 -I./q_lib/include;
+// this wont work on bela board
 
 //// test only
 #include <cmath>
