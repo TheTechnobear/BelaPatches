@@ -103,6 +103,8 @@ float convertPitchToDec(float p) {
 	return p;
 }
 
+bool is_ready = false;
+
 void render(BelaContext *context, void *userData)
 {
 	static unsigned counter = 0;
@@ -124,6 +126,7 @@ void render(BelaContext *context, void *userData)
 			t_testFreq = BASE_FREQ * powf(2, p);
 			t_ptFreq = 0.0f;
 			counter = 0;
+			is_ready = false;
 			// setupPitchDetector(context,t_testFreq);
 
 		// } else {
@@ -146,16 +149,11 @@ void render(BelaContext *context, void *userData)
 	}
 
 
-	bool is_ready = false;
 	if (t_Outputs[t_Output].calibrating_) {
 		counter++;
 		for (unsigned n = 0; n < context->audioFrames; n++) {
 			float v0 = audioRead(context, n, 0);
 			is_ready = (*t_pitchDetector)(v0);
-		}
-
-		if (is_ready) {
-			t_ptFreq = t_pitchDetector->get_frequency();
 		}
 	}
 
@@ -164,8 +162,16 @@ void render(BelaContext *context, void *userData)
 	if (t_Outputs[t_Output].calibrating_)
 	{
 		auto& o = t_Outputs[t_Output];
-		// if (is_ready || (counter % 5000 ==0) ) {
-		if (counter % 2000 == 0) {
+		if (is_ready || (counter % 10000 ==0) ) {
+		// if (counter % 2000 == 0) {
+
+			if (is_ready) {
+				// t_ptFreq = t_pitchDetector->get_frequency();
+				t_ptFreq = t_pitchDetector->predict_frequency();
+			} else {
+				t_ptFreq =0.0;
+			}
+
 			// end of test
 			if (o.stage_ == 0) {
 				o.minV_ = convertPitchToDec(t_ptFreq);
@@ -177,6 +183,10 @@ void render(BelaContext *context, void *userData)
 
 
 			rt_printf("done test %d %f %f : %f\n", o.stage_, o.currentV_, t_testFreq, t_ptFreq);
+			rt_printf("get_frequency %f predict_frequency %f ,  periodicity %f\n", 
+				t_pitchDetector->get_frequency(), 
+				t_pitchDetector->predict_frequency(), 
+				t_pitchDetector->periodicity());
 
 			o.stage_++;
 			o.stage_ = o.stage_ % (MAX_RES + 1);
@@ -187,7 +197,8 @@ void render(BelaContext *context, void *userData)
 			t_ptFreq = 0.0f;
 			counter = 0;
 			// setupPitchDetector(context,t_testFreq);
-			// t_pitchDetector->reset();
+			t_pitchDetector->reset();
+			is_ready = false;
 
 			if (o.stage_ == 0) {
 				o.calibrating_ = false;
