@@ -38,8 +38,6 @@ void generateTestTone(BelaContext *context, void *userData) {
 
 	float t_amplitude = 1.0f;
 	for (unsigned int n = 0; n < context->audioFrames; n++) {
-
-		// test tone, frequency by pot 1
 		float out1 = t_amplitude * sinf(t_gPhase);
 		audioWrite(context, n, 0, out1);
 		t_gPhase += PI2 * t_testFreq * t_gInverseSampleRate;
@@ -149,11 +147,25 @@ void render(BelaContext *context, void *userData)
 	}
 
 
+
 	if (t_Outputs[t_Output].calibrating_) {
 		counter++;
+		// try some silence between tests?
+		// if(counter<1000) {
+		// 	for (unsigned int n = 0; n < context->audioFrames; n++) {
+		// 		audioWrite(context, n, 0, 0);
+		// 	}
+		// } else {
+			generateTestTone(context, userData);
+		// }
+
 		for (unsigned n = 0; n < context->audioFrames; n++) {
 			float v0 = audioRead(context, n, 0);
 			is_ready = (*t_pitchDetector)(v0);
+		}
+	} else {
+		for (unsigned int n = 0; n < context->audioFrames; n++) {
+			audioWrite(context, n, 0, 0);
 		}
 	}
 
@@ -183,7 +195,7 @@ void render(BelaContext *context, void *userData)
 
 
 			rt_printf("done test %d %f %f : %f\n", o.stage_, o.currentV_, t_testFreq, t_ptFreq);
-			rt_printf("get_frequency %f predict_frequency %f ,  periodicity %f\n", 
+			rt_printf("get_frequency %f predict_frequency %f ,  periodicity %f\n\n", 
 				t_pitchDetector->get_frequency(), 
 				t_pitchDetector->predict_frequency(), 
 				t_pitchDetector->periodicity());
@@ -213,7 +225,6 @@ void render(BelaContext *context, void *userData)
 	}
 
 
-	generateTestTone(context, userData);
 	drivePwm(context);
 }
 
