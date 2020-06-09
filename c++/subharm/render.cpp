@@ -16,7 +16,7 @@ static constexpr unsigned ledPins[numLed] = {6, 7, 10, 2, 3, 0, 1, 4, 5, 8 };
 
 
 static constexpr float voltOutRange = 5.0f;
-static constexpr float BASE_FREQ = 880.0f;
+static constexpr float BASE_FREQ = 440.0f;
 
 //data about a particular sequencer
 struct SubHarmOscillator {
@@ -37,7 +37,7 @@ struct SubHarmOscillator {
 	float		cvVals_[4];
 	float		timeVals_[4];
 
-
+	unsigned gateTime_ = 0;
 	float decayT_ = 0.0001f;
 	float env_ = 0.0f;
 
@@ -296,10 +296,15 @@ void render(BelaContext *context, void *userData)
 				if (trig) {
 					osc.curStep_ = (osc.curStep_ + 1) % 4;
 					osc.env_ = 1.0f;
+					osc.gateTime_=0;
 				}
 
-				// analog rate=SR/2 , we want 2ms (in analog samples)
+				osc.gateTime_++;
 				osc.env_ *= (1.0f - osc.decayT_);
+
+				// analog rate=SR/2 , we want 3ms (in analog samples)
+				static constexpr unsigned trigTime = ((44100 / 2) / 1000) * 3;
+				auto gate = osc.gateTime_ < trigTime;
 
 				auto& cvVal = osc.cvVals_[osc.curStep_];
 
@@ -315,7 +320,7 @@ void render(BelaContext *context, void *userData)
 				analogWriteOnce(context, f, baseout, 		freqToCV(mFreq));
 				analogWriteOnce(context, f, baseout + 1,	freqToCV(f1));
 				analogWriteOnce(context, f, baseout + 2,	freqToCV(f2));
-				analogWriteOnce(context, f, baseout + 3,	osc.env_);
+				analogWriteOnce(context, f, baseout + 3,	gate);
 				
 				
 				// update audio oscillators frequencies

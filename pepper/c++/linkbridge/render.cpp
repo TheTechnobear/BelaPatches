@@ -180,10 +180,10 @@ void render(BelaContext *context, void *userData)
 	static unsigned barCounter=0; 
 
 	// controls
-	int latency = ((analogRead(context,0,0) - 0.5 ) * 32.0f); // +/- 16ms
+	int latency = ((1.0f - analogRead(context,0,0) ) * 32.0f) * -1.0f ; // 0-32ms
 	if(latency!=latency_) {
 		latency_=latency;
-		rt_printf("latency offset=%d\n",latency_);
+		rt_printf("latency offset %d\n",latency_);
 	}
 
 	bool but0 = digitalRead(context,0,buttonPins[0]);
