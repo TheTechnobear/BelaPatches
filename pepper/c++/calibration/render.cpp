@@ -10,156 +10,262 @@
 Scope scope;
 Gui gui;
 
-float guiBuf[] = {0.0f};
-
-
-class Calibrator {
-public: 
-	Calibrator() {
-		offsets_ = new float[maxOutputs_ * voltRange_];
-		for(unsigned o = 0;o<maxOutputs_;o++) {
-			out_[o] = 0.0f;
-			for(unsigned i = 0;i<voltRange_;i++) {
-				offset(o,i) = 0.0f;
-			}
-		}
-	}
-	~Calibrator() {
-		delete [] offsets_;
-	}
-	
-	float& offset(unsigned o, unsigned v) {
-		return offsets_[voltRange_*o + v];
-	}
-	
-	float out(unsigned o) { return out_[o] + calibOffset_;}
-	void  out(unsigned o, float v) { out_[o]=v;}
-	
-	unsigned calibOutput() { return calibOutput_; }
-	float nextCalibrationStep() {
-		offset(calibOutput_,calibN_) = calibOffset_;
-		if(calibN_< voltRange_ ) {
-			calibN_ ++;
-		} else {
-			for(unsigned i=0;i<voltRange_;i++) {
-				rt_printf("%d:%d %f \n", calibOutput_, i, offset(calibOutput_,i));
-			}
-			calibN_=0;
-			calibOutput_++;
-			if(calibOutput_>7) calibOutput_ = 0;
-		}
-		return float(calibN_) * calibStep_;
-	}
-	float prevCalibrationStep() {
-		rt_printf("%d:%d %f \n", calibOutput_, calibN_, calibOffset_);
-		offset(calibOutput_,calibN_) = calibOffset_;
-		if(calibN_>0) {
-			calibN_--;
-		}
-		else {
-			calibN_=voltRange_;
-			if(calibOutput_==0) {
-				calibOutput_ = 7;
-			} else {
-				calibOutput_--;
-			}
-		}
-		return float(calibN_) * calibStep_;
-	}
-	
-	void applyOffset(float off) {
-		calibOffset_ = off / 100.0f;
-	}
-
-private:
-    static constexpr unsigned maxOutputs_ = 8;
-    static constexpr int minVolt_ = 0;
-    static constexpr int maxVolt_ = 5;
-    unsigned voltRange_ = maxVolt_ + std::abs(minVolt_);
-	float calibStep_ = 1.0f / (float) voltRange_;  
-    
-	unsigned calibN_ = 0;
-	float calibOffset_ = 0.0f;
-	unsigned calibOutput_ = 0;
-	
-    float out_[maxOutputs_];
-	float *offsets_;
+enum dataIn {
+	DI_BOARD,
+	DI_I_TARGET_CH,
+	DI_I_TARGET_VOLT,
+	DI_I_CAL_TRIG,
+	DI_O_TARGET_CH,
+	DI_O_TARGET_VOLT,
+	DI_O_MIN_VOLT,
+	DI_O_MAX_VOLT,
+	DI_O_T_FLOAT,
+	DI_O_CAL_TRIG,
+	DI_MAX
 };
 
 
-static constexpr unsigned MAX_DIG=16;
-std::shared_ptr<Calibrator> calibrator=nullptr;
-bool digInState[MAX_DIG];
-bool digInTrans[MAX_DIG];
+enum dataOut {
+	DO_I_MIN_VOLT,
+	DO_I_MAX_VOLT,
+	DO_I_ACT_VOLT,
+	DO_I_ACT_FLOAT,
+	DO_I_CAL_FLOAT,
+	DO_I_CAL_VOLT,
+	DO_O_ACT_FLOAT,
+	DO_O_CAL_FLOAT,
+	DO_O_MIN_VOLT,
+	DO_O_MAX_VOLT,
+	DO_MAX
+};
+
+enum boardType {
+	BT_SALT,
+	BT_PEPPER,
+	BT_BELA,
+	BT_MAX
+};
 
 
-bool setup(BelaContext *context, void *userData)
-{
+float dataOutBuf[DO_MAX];
+float dataInBuf[DI_MAX];
+
+static constexpr unsigned MAX_STATUS=120;
+static char statusBuf[MAX_STATUS];
+
+
+static constexpr unsigned MAX_RES=10+1;
+static constexpr unsigned MAX_CH=8;
+float inCalValues[MAX_CH][MAX_RES];
+float outCalValues[MAX_CH][MAX_RES];
+
+
+bool setup(BelaContext *context, void *userData) {
 	scope.setup(2, context->audioSampleRate);
 	gui.setup(context->projectName);
-	gui.setBuffer('f', 1); // Index = 0
-	gui.setBuffer('f', 1); // Index = 1
 
-	calibrator=std::make_shared<Calibrator>();
-	for(unsigned n=0;n<MAX_DIG;n++) {
-		digInState[n] = digInState[n] = false;
+	for(unsigned i=0;i<DO_MAX;i++) {
+		dataOutBuf[i]=0.0f;
 	}
+	for(unsigned i=0;i<DI_MAX;i++) {
+		dataInBuf[i]=0.0f;
+	}
+	gui.setBuffer('f', DO_MAX); 
+	gui.setBuffer('c', MAX_STATUS);
+
+	dataInBuf[DI_BOARD]=BT_MAX;
+
+	for(unsigned ch=0;ch<MAX_CH;ch++) {
+		for(int i=0;i<MAX_RES;i++) {
+			inCalValues[ch][i] = float(i) / 10.0f;
+			outCalValues[ch][i] = float(i) / 10.0f;
+		}
+	}
+
 	return true;
 }
 
+void sendStatus() {
+	gui.sendBuffer(1,statusBuf);
+}
 
-void render(BelaContext *context, void *userData)
-{
+unsigned findCalStep(float v, float min,float max) {
+	float rangeV = fabs(min) + max;
+	float absV = (fabs(min) + v) *  (float(10.0f)/ rangeV );
+	unsigned step = absV + 0.2;
+	return step;
+}
+
+void inCalibrated() {
+	unsigned tCh= dataInBuf[DI_I_TARGET_CH];
+	float tV=dataInBuf[DI_I_TARGET_VOLT];
+	float minV=dataOutBuf[DO_I_MIN_VOLT];
+	float maxV=dataOutBuf[DO_I_MAX_VOLT];
+
+	unsigned step = findCalStep(tV,minV,maxV);
+	step = step <MAX_RES ? step : MAX_RES-1;
+	tCh = tCh <MAX_CH ? tCh : MAX_CH-1;
+
+	inCalValues[tCh][step] = dataOutBuf[DO_I_ACT_FLOAT];
+}
+
+void outCalibrated() {
+	unsigned tCh= dataInBuf[DI_O_TARGET_CH];
+	float tV=dataInBuf[DI_O_TARGET_VOLT];
+	float minV=dataOutBuf[DO_O_MIN_VOLT];
+	float maxV=dataOutBuf[DO_O_MAX_VOLT];
+	unsigned step = findCalStep(tV,minV,maxV);
+	step = step <MAX_RES ? step : MAX_RES-1;
+	tCh = tCh <MAX_CH ? tCh : MAX_CH-1;
+	outCalValues[tCh][step] = dataInBuf[DI_O_T_FLOAT];
+	// rt_printf("out calibrated %d %f\n", step, outCalValues[tCh][step]);
+	sprintf(statusBuf,"out calibrated s %d tV %f mV %f xV %f outV %f", step, tV, minV, maxV,outCalValues[tCh][step]);
+	sendStatus();
+}
+
+
+void calTargetVolt() {
+	unsigned tCh= dataInBuf[DI_O_TARGET_CH];
+	float tV=dataInBuf[DI_O_TARGET_VOLT];
+	float minV=dataOutBuf[DO_O_MIN_VOLT];
+	float maxV=dataOutBuf[DO_O_MAX_VOLT];
+	unsigned step = findCalStep(tV,minV,maxV);
+	float rangeV = fabs(minV) + maxV;
+	float absV = (fabs(minV) + tV);
+
+	dataOutBuf[DO_O_ACT_FLOAT] = absV / rangeV;
+	step = step <MAX_RES ? step : MAX_RES-1;
+	tCh = tCh <MAX_CH ? tCh : MAX_CH-1;
+	dataOutBuf[DO_O_CAL_FLOAT] = outCalValues[tCh][step];
+	dataInBuf[DI_O_T_FLOAT]= outCalValues[tCh][step];
+}
+
+void dataChanged(unsigned i, float oldV, float newV) {
+	switch(i) {
+		case DI_BOARD : {
+			switch ((unsigned) newV) {
+				case BT_SALT : {
+					dataOutBuf[DO_I_MIN_VOLT]=-5.0;
+					dataOutBuf[DO_I_MAX_VOLT]=5.0;
+					dataOutBuf[DO_O_MIN_VOLT]=-5.0;
+					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
+
+					break;
+				} 
+				case BT_PEPPER : {
+					dataOutBuf[DO_I_MIN_VOLT]=0;
+					dataOutBuf[DO_I_MAX_VOLT]=10.0;
+					dataOutBuf[DO_O_MIN_VOLT]=0;
+					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
+					break;
+				} 
+				case BT_BELA: {
+					dataOutBuf[DO_I_MIN_VOLT]=0;
+					dataOutBuf[DO_I_MAX_VOLT]=5.0;
+					dataOutBuf[DO_O_MIN_VOLT]=0;
+					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
+					break;
+				} 
+				default: {
+					dataOutBuf[DO_I_MIN_VOLT]=0;
+					dataOutBuf[DO_I_MAX_VOLT]=5.0;
+					dataOutBuf[DO_O_MIN_VOLT]=0;
+					dataOutBuf[DO_O_MAX_VOLT]=5.0;
+					calTargetVolt();
+					break;
+				} 
+			} // board type
+			break;
+		} // case DI BOARD
+		case DI_I_CAL_TRIG : {
+			if(newV>0.5) inCalibrated();
+			break;
+		}
+		case DI_O_CAL_TRIG : {
+			if(newV>0.5) outCalibrated();
+			break;
+		}
+		case DI_I_TARGET_VOLT : {
+			break;
+		}
+		case DI_O_TARGET_VOLT : {
+			calTargetVolt();
+			sprintf(statusBuf,"new TargetVoltage %f %f %f %f ", newV, dataOutBuf[DO_O_ACT_FLOAT], dataInBuf[DI_O_T_FLOAT],dataOutBuf[DO_O_CAL_FLOAT]);
+			sendStatus();
+			break;
+		}
+		case DI_O_T_FLOAT : {
+			dataOutBuf[DO_O_CAL_FLOAT] = dataInBuf[DI_O_T_FLOAT];
+			break;
+		}
+	}
+}
+
+
+
+void render(BelaContext *context, void *userData) {
+	if(!gui.isConnected()) return;
+
 	static unsigned sendCount =0;
 	sendCount++;
-	
-	static constexpr unsigned but1 = 15;
-	// static constexpr unsigned but2 = 14;
-	
-	for(unsigned int n=0; n<context->digitalFrames; n++) {
-		for(unsigned int c=0; c<MAX_DIG; c++){
-			int status=digitalRead(context, 0, c);
-			if(n==0) {
-				digInTrans[c] = !status && digInState[c];
-				digInState[c] = status;
+	if(! (sendCount % 1000)) {	
+		// Retrieve contents of the buffer as floats
+		DataBuffer buffer = gui.getDataBuffer(0);
+		unsigned sz =buffer.getNumElements();
+		float* data = buffer.getAsFloat();
+		if(data) {
+			// rt_printf("data  buffer sz=%d  [ ",sz);
+			// for(unsigned i=0;i<sz;i++) 	rt_printf("%f ,  ", data[i]);
+			// rt_printf("]\n",sz);
+
+			for(unsigned i=0;i<DI_MAX && i<sz;i++) {
+				float old = dataInBuf[i];
+
+				dataInBuf[i]=data[i];
+				if(old != dataInBuf[i]) {
+					dataChanged(i,old, dataInBuf[i]);
+				}
 			}
 		}
+
+		if(unsigned(dataInBuf[DI_I_TARGET_CH]) < context->analogInChannels) {
+			unsigned ch = dataInBuf[DI_I_TARGET_CH];
+			float v = analogRead(context, 0,ch);
+
+			// act = current reading.
+			// cal = calibrated reading
+			dataOutBuf[DO_I_ACT_FLOAT]= v;
+			float minV= dataOutBuf[DO_I_MIN_VOLT];
+			float maxV= dataOutBuf[DO_I_MAX_VOLT];
+			float vMult = fabs(minV) + maxV;
+			dataOutBuf[DO_I_ACT_VOLT]=(dataOutBuf[DO_I_ACT_FLOAT] * vMult) + minV;
+
+			unsigned actStep = v * (MAX_RES - 1);
+			float pctStep= (v * (MAX_RES - 1)) - actStep;
+			float calLow = actStep == 0 ? inCalValues[ch][0] : inCalValues[ch][actStep];
+			float calHigh= actStep == (MAX_RES-1) ? inCalValues[ch][MAX_RES-1] : inCalValues[ch][actStep+1];
+			float calF   = calLow + ((calHigh-calLow) * pctStep);
+
+			dataOutBuf[DO_I_CAL_FLOAT]= calF;
+
+			//convert to voltage
+			dataOutBuf[DO_I_CAL_VOLT]=(dataOutBuf[DO_I_CAL_FLOAT] * vMult) + minV;
+		}
+
+		gui.sendBuffer(0,dataOutBuf);
 	}
 	
-	if(digInTrans[but1]) {
-		float v = calibrator->nextCalibrationStep();
-		calibrator->out(calibrator->calibOutput(),v);
-	}
-
-	float pot1 = analogRead(context, 0,0);
-	float offset = ( (pot1 - 0.5) * 2.0f ); // -1 to 1
-	calibrator->applyOffset(offset);
-
-	for(unsigned int n = 0; n < context->analogFrames; n++) {
-		for(unsigned int channel = 0; channel < context->analogOutChannels; channel++) {
-			float out = calibrator->out(channel);
-			analogWriteOnce(context, n, channel, out);
+	if(unsigned(dataInBuf[DI_O_TARGET_CH]) < context->analogOutChannels) {
+		for(unsigned int n = 0; n < context->analogFrames; n++) {
+			analogWriteOnce(context, n, unsigned(dataInBuf[DI_O_TARGET_CH]) , dataInBuf[DI_O_T_FLOAT]);
 		}
 	}
-
-	if(! (sendCount % 1000)) {	
-		guiBuf[0] = offset;
-		gui.sendBuffer(0,guiBuf);
-		
-		DataBuffer buffer = gui.getDataBuffer(1);
-		// Retrieve contents of the buffer as floats
-		float* data = buffer.getAsFloat();
-		
-		static unsigned idx = 0;
-		if(idx!=data[0]) {
-			idx = data[0];
-			rt_printf("index change %d \n", idx);
-		}
-	}
-	
 	
 }
-void cleanup(BelaContext *context, void *userData)
-{
-	calibrator=nullptr;
+
+void cleanup(BelaContext *context, void *userData) {
+	;
 }
