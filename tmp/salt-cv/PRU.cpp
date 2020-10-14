@@ -728,6 +728,15 @@ int PRU::start(char * const filename)
                 }
                 return 1;
         }
+#if RTDM_PRUSS_IRQ_VERSION >= 2
+	{
+		// From version 2 onwards we can set the verbose level
+		int ret = __wrap_ioctl(rtdm_fd_pru_to_arm, RTDM_PRUSS_IRQ_VERBOSE, 0);
+		if(ret == -1)
+			fprintf(stderr, "ioctl verbose failed: %d %s\n", errno, strerror(errno));
+		// do not fail
+	}
+#endif // RTDM_PRUSS_IRQ_VERSION >= 2
 #if RTDM_PRUSS_IRQ_VERSION >= 1
         // From version 1 onwards, we need to specify the PRU system event we want to receive interrupts from (see rtdm_pruss_irq.h)
         // For rtdm_fd_pru_to_arm we use the default mapping
@@ -897,13 +906,13 @@ void PRU::loop(void *userData, void(*render)(BelaContext*, void*), bool highPerf
 
 	bool interleaved = context->flags & BELA_FLAG_INTERLEAVED;
 	int underrunLedCount = -1;
-	while(!gShouldStop) {
+	while(!Bela_stopRequested()) {
 
 #if defined BELA_USE_POLL || defined BELA_USE_BUSYWAIT
 		// Which buffer the PRU was last processing
 		static uint32_t lastPRUBuffer = 0;
 		// Poll
-		while(pru_buffer_comm[PRU_CURRENT_BUFFER] == lastPRUBuffer && !gShouldStop) {
+		while(pru_buffer_comm[PRU_CURRENT_BUFFER] == lastPRUBuffer && !Bela_stopRequested()) {
 #ifdef BELA_USE_POLL
 			task_sleep_ns(sleepTime);
 #endif /* BELA_USE_POLL */
@@ -928,7 +937,7 @@ void PRU::loop(void *userData, void(*render)(BelaContext*, void*), bool highPerf
 			rt_fprintf(stderr, "PRU interrupt timeout, %d %d %s\n", ret, errno, strerror(errno));
 			if(interruptTimeoutCount >= 5)
 			{
-				fprintf(stderr, "The PRU stopped responding. Is the light still blinking? It would be very helpful if you could send the output of the `dmesg` command to the developers to help track down the issue. Quitting.\n");
+				fprintf(stderr, "McASP error, abort\n");
 				exit(1); // Quitting abruptly, purposedly skipping the cleanup so that we can inspect the PRU with prudebug.
 			}
 			task_sleep_ns(100000000);
@@ -940,14 +949,14 @@ void PRU::loop(void *userData, void(*render)(BelaContext*, void*), bool highPerf
 			if(belaCapeButton.read() == 0){
 				if(++belaCapeButtonCount > 10){
 					printf("Button pressed, quitting\n");
-					gShouldStop = true;
+					Bela_requestStop();
 				}
 			} else {
 				belaCapeButtonCount = 0;
 			}
 		}
 
-		if(gShouldStop)
+		if(Bela_stopRequested())
 			break;
 
 		// pru_buffer_comm[PRU_CURRENT_BUFFER] will have been set by
@@ -1223,7 +1232,7 @@ void PRU::loop(void *userData, void(*render)(BelaContext*, void*), bool highPerf
 					// also rescale it to avoid
 					// headroom problem on the analog outputs with a sagging
 					// 5V USB supply
-                    const float analogOutMax = 0.84666;
+					const float analogOutMax = 0.84666; //TB
 					//const float analogOutMax = 0.93;
 					context->analogOut[n] = (1.f - context->analogOut[n]) * analogOutMax;
 				}
@@ -1449,7 +1458,7 @@ void PRU::loop(void *userData, void(*render)(BelaContext*, void*), bool highPerf
 			if(pruFrameCount > expectedFrameCount)
 			{
 				// don't print a warning if we are stopping
-				if(!gShouldStop)
+				if(!Bela_stopRequested())
 				{
 					rt_fprintf(stderr, "Underrun detected: %u blocks dropped\n", (pruFrameCount - expectedFrameCount) / pruFramesPerBlock);
 					if(underrunLed.enabled())
