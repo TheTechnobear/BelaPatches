@@ -87,8 +87,8 @@ public:
                 }
                 break;
             }
-            default:
-            case 2: {
+            case 2:
+            default: {
                 // this assume a unipolar input for angle!
                 float angle= ((xCvIn -0.5f)* 2.0f)  * float(M_PI) * 2.0f;
                 float x1 = sinf_neon(angle) * yCvIn;

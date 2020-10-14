@@ -36,11 +36,11 @@ public:
 			quantMode_(QuantMode::GLIDE),
 			pitchMode_(PitchMode::SINGLE)  {
 		gStartTime = std::chrono::system_clock::now();
+		layouts_.push_back(new ZoneLayout_4XY());
 		layouts_.push_back(new ZoneLayout_1());
 		layouts_.push_back(new ZoneLayout_2());
 		layouts_.push_back(new ZoneLayout_4());
 		layouts_.push_back(new ZoneLayout_3XY1());
-		layouts_.push_back(new ZoneLayout_4XY());
 		layouts_[layoutIdx_]->quantMode(quantMode_);
 		layouts_[layoutIdx_]->pitchMode(pitchMode_);
 	}
