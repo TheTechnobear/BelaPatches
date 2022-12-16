@@ -14,9 +14,9 @@ https://learn.bela.io/using-bela/languages/rnbo/
 
 # How to use
 
-there are main steps
+there are two teps
 
-1) Initial Setup 
+## Initial Setup 
 intially generate an RNBO C++ export, it can be completely empty rnbo, 
 we just want the rnbo template code... we are not interested in the rnbo_source.cpp
 
@@ -26,13 +26,14 @@ so once generated copy the rnbo subfolder of this export to your bela to `~/Bela
 
 this is a one-off step, and only needs to be repeated if RNBO is updated.
 
-2) Setup your Bela project
-a) use **this** folder content as a new project for bela.
+## Creating new bela projects
 
+
+use **this** folder contents as a new project for bela.
 you can simple zip this folder, and drop onto IDE if you wish.
 
 
-b) export rnbo patch
+export rnbo patch
 export to rnbo_source.cpp, then simply replace this file in the project.
 
 if you have the project oopen in the IDE, you can simply drag n' drop  to replace.
