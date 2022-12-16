@@ -14,7 +14,7 @@ https://learn.bela.io/using-bela/languages/rnbo/
 
 # How to use
 
-there are two teps
+there are two steps to use this 'template'
 
 ## Initial Setup 
 intially generate an RNBO C++ export, it can be completely empty rnbo, 
