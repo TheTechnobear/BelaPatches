@@ -14,7 +14,9 @@ https://learn.bela.io/using-bela/languages/rnbo/
 
 # How to use
 
-there are two steps to use this 'template'
+there are two steps to use these templates.
+
+
 
 ## Initial Setup 
 intially generate an RNBO C++ export, it can be completely empty rnbo, 
@@ -56,4 +58,7 @@ in particular the main work, which was the creation of render.cpp to interace rn
 SO if this is improved and updated in the rnbo.example.bela repo, you can simply drop this into the project.
 
 
- 
+ # Templates
+
+basic - a vanilla template from rnbo.example.bela
+salt - a template specialised for Bela Salt , including 'starter' rnbo patch

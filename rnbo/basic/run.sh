@@ -8,4 +8,4 @@ cd $PROJECT_DIR
 
 set -e
 # note: RUN_FILE= ensures this same file doesn't get called recursively
-make -C $BELA_HOME CPPFLAGS="-I./rnbo/common -I.//rnbo -DRNBO_USE_FLOAT32" PROJECT="$PROJECT_NAME" RUN_FILE=aaaaaaaaaaaaaaaaa $@ $([ 0 -eq "$#" ] && echo run)
+make -C $BELA_HOME CPPFLAGS="-I./rnbo/common -I./rnbo -DRNBO_USE_FLOAT32" PROJECT="$PROJECT_NAME" RUN_FILE=aaaaaaaaaaaaaaaaa $@ $([ 0 -eq "$#" ] && echo run)
